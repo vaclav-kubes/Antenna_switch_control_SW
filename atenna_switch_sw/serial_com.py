@@ -41,6 +41,7 @@ def serial_write(ser, data):
     try:
         ser.write(bytes(data, "ascii"))
         ser.flush()
+        time.sleep(0.07)
         #ser.flushOutput()
         return True
     except:

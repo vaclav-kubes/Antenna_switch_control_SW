@@ -8,15 +8,33 @@ import dde
 from serial_com import *
 import time
 import threading
+import queue
 
 def on_closing():
     try:
         ser_com.close()
         s.Shutdown()
+        t1.join(timeout=1)
+        t2.join(timeout=1)
         app.destroy()
     except:
         app.destroy()
 
+def read_U_I():
+    while True:
+        q.put(extract_val(get_curr_A(ser_com)[1]))
+        time.sleep(0.07)
+        q.put(extract_val(get_curr_B(ser_com)[1]))
+        time.sleep(0.07)
+        q.put(extract_val(get_fant_U(ser_com)[1]))
+        time.sleep(3)
+
+def read_temp():
+    while True:
+        q1.put(extract_val(get_temp_A(ser_com)[1]))
+        time.sleep(0.07)
+        q1.put(extract_val(get_temp_B(ser_com)[1]))
+        time.sleep(5.1)
 
 def auto_on():
     checkbtn_1.configure(state = "disabled")
@@ -113,40 +131,55 @@ def checkbtn_fun():
     ant_TK.set(ant_str)
 
 def update_current_voltage():#ser_com
-    data_A = extract_val(get_curr_A(ser_com)[1])
-    data_B = extract_val(get_curr_B(ser_com)[1])
-    data_V = extract_val(get_fant_U(ser_com)[1])
+    #data_A = extract_val(get_curr_A(ser_com)[1])
+    #data_B = extract_val(get_curr_B(ser_com)[1])
+    #data_V = extract_val(get_fant_U(ser_com)[1])
     #print(data_A)
     #print(data_B)
     #print(data_V)
-    if data_A != None and data_B != None and data_V != None:
-        cur_A_TK.set("{:.1f}".format(data_A))
-        cur_B_TK.set("{:.1f}".format(data_B))
-        fant_volt_TK.set("{:.1f}".format(data_V))
-        if switch_com_TK.get() == "Switch: Disconnected":
-            switch_com_TK.set("Switch: Connected")
-    else:
-        switch_com_TK.set("Switch: Disconnected")
+    try:
+        data_A = q.get()
+        data_B = q.get()
+        data_V = q.get()
+        if data_A != None and data_B != None and data_V != None:
+            cur_A_TK.set("{:.1f}".format(data_A))
+            cur_B_TK.set("{:.1f}".format(data_B))
+            fant_volt_TK.set("{:.1f}".format(data_V))
+            if switch_com_TK.get() == "Switch: Disconnected":
+                switch_com_TK.set("Switch: Connected")
+        else:
+            switch_com_TK.set("Switch: Disconnected")
+    
+    except queue.Empty:
+        pass
+    
+
     #app.after(18001, threading.Thread(target = update_current_voltage, args = (ser_com,), deamon = True).start())
     app.after(18001, update_current_voltage)
 
 def update_temp(): #ser_com
     #print("temp1")
-    data_A = extract_val(get_temp_A(ser_com)[1])
+    #data_A = extract_val(get_temp_A(ser_com)[1])
     #time.sleep(0.3)
     #print("temp2")
-    data_B = extract_val(get_temp_B(ser_com)[1])
+    #data_B = extract_val(get_temp_B(ser_com)[1])
     #time.sleep(0.3)
     #print(data_A)
     #print(data_B)
     #print(data_V)
-    if data_A != None and data_B != None:
-        temp_A_TK.set("{:.1f}".format(data_A))
-        temp_B_TK.set("{:.1f}".format(data_B))
-        if switch_com_TK.get() == "Switch: Disconnected":
-            switch_com_TK.set("Switch: Connected")
-    else:
-        switch_com_TK.set("Switch: Disconnected")
+    try:
+        data_A = q1.get()
+        data_B = q1.get()
+
+        if data_A != None and data_B != None:
+            temp_A_TK.set("{:.1f}".format(data_A))
+            temp_B_TK.set("{:.1f}".format(data_B))
+            if switch_com_TK.get() == "Switch: Disconnected":
+                switch_com_TK.set("Switch: Connected")
+        else:
+            switch_com_TK.set("Switch: Disconnected")
+    except queue.Empty:
+        pass
     #t2.join()
     #t2 = threading.Thread(target = update_temp, args = (ser_com,), daemon = True)
     #app.after(37001, threading.Thread(target = update_temp, args = (ser_com,), daemon = True).start())#300000
@@ -367,6 +400,8 @@ conn_B = cstk.StringVar()
 list_com = []
 config_com = ""
 
+q = queue.Queue()
+q1 = queue.Queue()
 #create a DDE client and start conversation
 s = dde.CreateServer()
 #the parameter in brackets is the name of this Python file (AddLayers.py)
@@ -520,14 +555,17 @@ label_13.grid(column = 1, row = 6, sticky = "EWNS", pady = 18)
 
 app.after(500, update_data_from_orbitron)
 #t1 = threading.Thread(target = update_data_from_switch, args = (ser_com,), daemon = True)
-
+t1 = threading.Thread(target = read_U_I, daemon = True)#, daemon = True
+t1.start()
+t2 = threading.Thread(target = read_temp, daemon = True)
+t2.start()
 #app.after(501, t1.start)
 app.after(501, update_data_from_switch)
 
 #t2 = threading.Thread(target = update_temp, args = (ser_com,), daemon = True)
-app.after(5000,update_temp)
-app.after(1000,update_current_voltage)
-app.after(8000,update_orintation)
+app.after(5700, update_temp)
+app.after(5000, update_current_voltage)
+#app.after(8000,update_orintation)
 
 #app.after(18001, threading.Thread(target = update_current_voltage, args = (ser_com,)).start())#1800000
 #app.after(60000, update_vlotage)

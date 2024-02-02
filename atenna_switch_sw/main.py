@@ -14,27 +14,39 @@ def on_closing():
     try:
         ser_com.close()
         s.Shutdown()
-        t1.join(timeout=1)
-        t2.join(timeout=1)
+        #t1.join(timeout=1)
+        #t2.join(timeout=1)
         app.destroy()
     except:
         app.destroy()
 
 def read_U_I():
-    while True:
-        q.put(extract_val(get_curr_A(ser_com)[1]))
-        time.sleep(0.07)
-        q.put(extract_val(get_curr_B(ser_com)[1]))
-        time.sleep(0.07)
-        q.put(extract_val(get_fant_U(ser_com)[1]))
-        time.sleep(3)
+    q_UI.put(extract_val(get_curr_A(ser_com)[1]))
+    #time.sleep(0.07)
+    q_UI.put(extract_val(get_curr_B(ser_com)[1]))
+    #time.sleep(0.07)
+    q_UI.put(extract_val(get_fant_U(ser_com)[1]))
+    #time.sleep(0.07)
+    t = threading.Timer(function = read_U_I, interval = 5)
+    t.daemon = True
+    t.start()
 
 def read_temp():
-    while True:
-        q1.put(extract_val(get_temp_A(ser_com)[1]))
-        time.sleep(0.07)
-        q1.put(extract_val(get_temp_B(ser_com)[1]))
-        time.sleep(5.1)
+    q_temp.put(extract_val(get_temp_A(ser_com)[1]))
+    #time.sleep(0.07)
+    q_temp.put(extract_val(get_temp_B(ser_com)[1]))
+    #time.sleep(0.07)
+    t = threading.Timer(function = read_temp, interval = 7)
+    t.daemon = True
+    t.start()
+
+def read_orient():
+    q_orient.put(extract_val(get_compass(ser_com)[1]))
+    t = threading.Timer(function = read_orient, interval = 10)
+    t.daemon = True
+    t.start()
+
+
 
 def auto_on():
     checkbtn_1.configure(state = "disabled")
@@ -138,9 +150,9 @@ def update_current_voltage():#ser_com
     #print(data_B)
     #print(data_V)
     try:
-        data_A = q.get()
-        data_B = q.get()
-        data_V = q.get()
+        data_A = q_UI.get()
+        data_B = q_UI.get()
+        data_V = q_UI.get()
         if data_A != None and data_B != None and data_V != None:
             cur_A_TK.set("{:.1f}".format(data_A))
             cur_B_TK.set("{:.1f}".format(data_B))
@@ -153,7 +165,6 @@ def update_current_voltage():#ser_com
     except queue.Empty:
         pass
     
-
     #app.after(18001, threading.Thread(target = update_current_voltage, args = (ser_com,), deamon = True).start())
     app.after(18001, update_current_voltage)
 
@@ -168,8 +179,8 @@ def update_temp(): #ser_com
     #print(data_B)
     #print(data_V)
     try:
-        data_A = q1.get()
-        data_B = q1.get()
+        data_A = q_temp.get()
+        data_B = q_temp.get()
 
         if data_A != None and data_B != None:
             temp_A_TK.set("{:.1f}".format(data_A))
@@ -186,7 +197,7 @@ def update_temp(): #ser_com
     app.after(47001, update_temp)#300000
 
 def update_orintation(): #ser_com
-    data = extract_val(get_compass(ser_com)[1])
+    data = q_orient.get()
     
     #print(data_A)
     #print(data_B)
@@ -400,8 +411,9 @@ conn_B = cstk.StringVar()
 list_com = []
 config_com = ""
 
-q = queue.Queue()
-q1 = queue.Queue()
+q_UI = queue.Queue()
+q_temp = queue.Queue()
+q_orient = queue.Queue()
 #create a DDE client and start conversation
 s = dde.CreateServer()
 #the parameter in brackets is the name of this Python file (AddLayers.py)
@@ -555,17 +567,28 @@ label_13.grid(column = 1, row = 6, sticky = "EWNS", pady = 18)
 
 app.after(500, update_data_from_orbitron)
 #t1 = threading.Thread(target = update_data_from_switch, args = (ser_com,), daemon = True)
-t1 = threading.Thread(target = read_U_I, daemon = True)#, daemon = True
+#t1 = threading.Thread(target = read_U_I, daemon = True)#, daemon = True
+#t1.start()
+t1 = threading.Timer(function = read_U_I, interval = 5)#, daemon = True
+t1.daemon = True
 t1.start()
-t2 = threading.Thread(target = read_temp, daemon = True)
+
+t2 = threading.Timer(function = read_temp, interval = 8)#, daemon = True
+t2.daemon = True
 t2.start()
+
+t3 = threading.Timer(function = read_orient, interval = 10)#, daemon = True
+t3.daemon = True
+t3.start()
+#t2 = threading.Thread(target = read_temp, daemon = True)
+#t2.start()
 #app.after(501, t1.start)
 app.after(501, update_data_from_switch)
 
 #t2 = threading.Thread(target = update_temp, args = (ser_com,), daemon = True)
 app.after(5700, update_temp)
 app.after(5000, update_current_voltage)
-#app.after(8000,update_orintation)
+app.after(8000,update_orintation)
 
 #app.after(18001, threading.Thread(target = update_current_voltage, args = (ser_com,)).start())#1800000
 #app.after(60000, update_vlotage)

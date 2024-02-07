@@ -87,7 +87,7 @@ def get_b_pressence(ser):
    return (serial_write(ser, "CB"), serial_read(ser))
 
 def extract_val(data):
-    print(data.decode("ascii"))
+    print(data)
     try:
         if len(data) > 10:
             data_r = []

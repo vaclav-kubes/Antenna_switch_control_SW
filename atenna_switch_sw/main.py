@@ -10,26 +10,82 @@ import time
 import threading
 import queue
 import schedule
+import datetime
+
+def log_error():
+    try:
+        now = datetime.datetime.now()
+        t = now.strftime("%d/%m/%Y %H:%M:%S")
+        with open("error_logs.csv", "r", encoding = "utf-8") as file:
+            pass
+        with open("error_logs.csv", "a", encoding = "utf-8") as file:
+            file.write(t + ',' + cur_A_TK.get() + ',' + cur_B_TK.get() + ',' + temp_A_TK.get() + ',' + temp_B_TK.get() + ',' + fant_volt_TK.get() + ',' + orientation_TK.get() + ','+ ant_TK.get() + '\n')
+    except:
+      with open("error_logs.csv", "a", encoding = "utf-8") as file:
+            file.write("Time,Curr. to A, Curr. to B,Temp. of A,Temp. og B,Voltage,Ant. azimuth,Switched ant.\n")
+            file.write(t + ',' + cur_A_TK.get() + ',' + cur_B_TK.get() + ',' + temp_A_TK.get() + ',' + temp_B_TK.get() + ',' + fant_volt_TK.get() + ',' + orientation_TK.get() + ','+ ant_TK.get() + '\n')
+              
+
+def switch_ant():
+    global ant_old
+    
+    ant_new = ant_TK.get().strip()
+    
+    if ant_old != ant_new:
+        #print("ant:", ant_new)
+        threading.Thread(target = ant_set, args = [ant_new], daemon = True).start()
+        ant_old = ant_new
+
+def ant_set(antenna):
+    #global block
+    while not q_done.get():
+        q_done.task_done()
+        time.sleep(0.3)
+    q_done.put(False)
+    #while block:
+        #time.sleep(0.3)
+    #block = True
+    
+    #q_done.task_done()
+    #print(time.time())
+    serial_write(ser_com, "AN"+ antenna.strip())
+    if extract_val(serial_read(ser_com)) != antenna:
+        log_error()
+    #time.sleep(0.7)
+    q_done.put(True)
+    q_done.task_done()
+    #block = False
 
 def evaluate_state(type_of_data, data):
+    global config_or
     try:
-        if type_of_data == "I":
-            if data >= 650 or data <= 20:
+        if type_of_data == "IA":
+            if data >= float(max_cur_A.get()) or data <= 20:
+                return True
+            else:
+                return False
+        elif type_of_data == "IB":
+            if data >= float(max_cur_B.get()) or data <= 20:
                 return True
             else:
                 return False
         elif type_of_data == "U":
-            if data > 13 or data < 7:
+            if data > float(max_u_fant.get()) or data < float(min_u_fant.get()):
                 return True
             else:
                 return False
-        elif type_of_data == "T":
-            if data > 50 or data < -5:
+        elif type_of_data == "TA":
+            if data > float(max_temp_p_A.get()) or data < float(max_temp_n_A.get()):
+                return True
+            else:
+                return False
+        elif type_of_data == "TB":
+            if data > float(max_temp_p_B.get()) or data < float(max_temp_n_B.get()):
                 return True
             else:
                 return False
         elif type_of_data == "C":
-            if data > float(config_or[:-2]) + 10 or data < float(config_or[:-2]) - 10:
+            if data > float(config_or[:-2]) + float(max_az_dev.get()) or data < float(config_or[:-2]) - float(max_az_dev.get()):
                 return True
             else:
                 return False
@@ -57,31 +113,42 @@ def auto_connect():
 
 
 def read_U_I():
+    #global block
+    #print("vlákno")
     while not q_done.get():
         q_done.task_done()
         time.sleep(0.3)
+    #while block:
+        #time.sleep(0.3)
+    #block = True
     q_done.put(False)
+    #print(time.time())
     IA = extract_val(get_curr_A(ser_com)[1])
     IB = extract_val(get_curr_B(ser_com)[1])
     UF = extract_val(get_fant_U(ser_com)[1])
+    q_done.put(True)
+    q_done.task_done()
+    #block = False
     q_UI.put(IA)
     #time.sleep(0.07)
     q_UI.put(IB)
     #time.sleep(0.07)
     q_UI.put(UF)
     q_UI.task_done()
-    q_done.put(True)
     
+    #block = False
     error_state = q_state.get()
-    error_state[0] = evaluate_state("I", IA)
-    error_state[1] = evaluate_state("I", IB)
+    error_state[0] = evaluate_state("IA", IA)
+    error_state[1] = evaluate_state("IB", IB)
     error_state[2] = evaluate_state("U", UF)
     q_state.put(error_state)
     q_state.task_done()
+    
 
     if True in error_state:
         state.set("Warning!")
         entry_11.configure(text_color = "red")
+        log_error()
     else:
         state.set("Normal state")
         entry_11.configure(text_color = "green")
@@ -102,7 +169,7 @@ def read_U_I():
         entry_4.configure(text_color = "black") 
 
     #time.sleep(0.07)
-    t = threading.Timer(function = read_U_I, interval = 180)
+    t = threading.Timer(function = read_U_I, interval = delay_read_UI)#180
     t.daemon = True
     t.start()
 
@@ -114,16 +181,17 @@ def read_temp():
     q_done.put(False)
     TA = extract_val(get_temp_A(ser_com)[1])
     TB = extract_val(get_temp_B(ser_com)[1])
+    q_done.put(True)
     q_temp.put(TA)
     #time.sleep(0.07)
     q_temp.put(TB)
     q_temp.task_done()
     #time.sleep(0.07)
-    q_done.put(True)
+    
 
     error_state = q_state.get()
-    error_state[3] = evaluate_state("T", TA)
-    error_state[4] = evaluate_state("T", TB)
+    error_state[3] = evaluate_state("TA", TA)
+    error_state[4] = evaluate_state("TB", TB)
     q_state.put(error_state)
     q_state.task_done()
 
@@ -145,7 +213,7 @@ def read_temp():
         entry_9.configure(text_color = "black")
 
 
-    t = threading.Timer(function = read_temp, interval = 300)
+    t = threading.Timer(function = read_temp, interval = delay_read_T + 0.2)
     t.daemon = True
     t.start()
 
@@ -155,10 +223,11 @@ def read_orient():
         time.sleep(0.3)
     q_done.put(False)
     EC = extract_val(get_compass(ser_com)[1])
-    q_orient.put(EC)
-    q_orient.task_done()
     q_done.put(True)
     q_done.task_done()
+    q_orient.put(EC)
+    q_orient.task_done()
+    
     
     error_state = q_state.get()
     error_state[5] = evaluate_state("C", EC)
@@ -178,7 +247,7 @@ def read_orient():
         entry_7.configure(text_color = "black") 
 
 
-    t = threading.Timer(function = read_orient, interval = 900)
+    t = threading.Timer(function = read_orient, interval = delay_read_C + 0.3)
     t.daemon = True
     t.start()
 
@@ -277,6 +346,7 @@ def checkbtn_fun():
         checkbtn_4.configure(state = 'normal')
         checkbtn_5.configure(state = 'normal')
     ant_TK.set(ant_str)
+    switch_ant()
 
 def update_current_voltage():#ser_com
     #data_A = extract_val(get_curr_A(ser_com)[1])
@@ -285,10 +355,11 @@ def update_current_voltage():#ser_com
     #print(data_A)
     #print(data_B)
     #print(data_V)
+    #print("tkinter")
     try:
-        data_A = q_UI.get()
-        data_B = q_UI.get()
-        data_V = q_UI.get()
+        data_A = q_UI.get_nowait()
+        data_B = q_UI.get_nowait()
+        data_V = q_UI.get_nowait()
         #while not q_UI.empty():
             #q_UI.get()
         q_UI.task_done()
@@ -305,7 +376,7 @@ def update_current_voltage():#ser_com
         pass
     
     #app.after(18001, threading.Thread(target = update_current_voltage, args = (ser_com,), deamon = True).start())
-    app.after(180100, update_current_voltage)
+    app.after(delay_read_UI * 1000 + 3500, update_current_voltage)#180100
 
 def update_temp(): #ser_com
     #print("temp1")
@@ -335,7 +406,7 @@ def update_temp(): #ser_com
     #t2.join()
     #t2 = threading.Thread(target = update_temp, args = (ser_com,), daemon = True)
     #app.after(37001, threading.Thread(target = update_temp, args = (ser_com,), daemon = True).start())#300000
-    app.after(300100, update_temp)#300000
+    app.after(delay_read_T * 1000 + 3000, update_temp)#300000
 
 def update_orintation(): #ser_com
     data = q_orient.get()
@@ -353,12 +424,20 @@ def update_orintation(): #ser_com
         switch_com_TK.set("Switch: Disconnected")
     
     #app.after(90001, threading.Thread(target = update_orintation, args = (ser_com,), deamon = True).start())#900000
-    app.after(900100, update_orintation)#900000
+    app.after(delay_read_C * 1000 + 3000, update_orintation)#900000
 
 def update_data_from_switch(): #[IA, IB, TA, TB, UF, EC, AN, CB] #ser_com
     #global ser_com
+    global ant_old
     if ser_com:
+        while not q_done.get():
+            q_done.task_done()
+            time.sleep(0.3)
+        q_done.put(False)
+        #q_done.task_done()
         data = extract_val(get_all(ser_com)[1])
+        q_done.put(True)
+        
         #print(data)
         #ser.close()
         cur_A_TK.set("{:.1f}".format(data[0]))
@@ -367,16 +446,21 @@ def update_data_from_switch(): #[IA, IB, TA, TB, UF, EC, AN, CB] #ser_com
         temp_B_TK.set("{:.1f}".format(data[3]))
         fant_volt_TK.set("{:.1f}".format(data[4]))
         orientation_TK.set("{:.1f}".format(data[5]) + " °")
+        ant_TK.set("{:n}".format(data[6]))
+        ant_old = "{:n}".format(data[6])
+
+        switch_ant()
 
         error_state = q_state.get()
-        error_state[0] = evaluate_state("I", data[0])
-        error_state[1] = evaluate_state("I", data[1])
+        error_state[0] = evaluate_state("IA", data[0])
+        error_state[1] = evaluate_state("IB", data[1])
         error_state[2] = evaluate_state("U", data[4])
-        error_state[3] = evaluate_state("T", data[2])
-        error_state[4] = evaluate_state("T", data[3])
+        error_state[3] = evaluate_state("TA", data[2])
+        error_state[4] = evaluate_state("TB", data[3])
         error_state[5] = evaluate_state("C", data[5])
         q_state.put(error_state)
         q_state.task_done()
+
 
         if True in error_state:
             state.set("Warning!")
@@ -432,7 +516,7 @@ def update_data_from_switch(): #[IA, IB, TA, TB, UF, EC, AN, CB] #ser_com
 def update_data_from_orbitron():
     dde_data.set(c.Request("TrackingData"))
     data = dde_data.get()
-    #print(dde_data.get())
+    #print(data)
     az = get_AZ_EZ("AZ", data)
     el = get_AZ_EZ("EL", data)
     #print("data:", az, el, len(data))
@@ -444,9 +528,11 @@ def update_data_from_orbitron():
         if not auto_switch.get():
         #print("auto", auto_select_ant())
             ant_TK.set(str(auto_select_ant()))
+            switch_ant()
     else:
         if orbitron_conn_TK.get() == "Orbitron: Connected":
             orbitron_conn_TK.set("Orbitron: No data")
+
 
 
     app.after(500, update_data_from_orbitron)
@@ -479,6 +565,8 @@ def get_AZ_EZ(select, data):
             azimut = azimut[:-1] + " °"
         else:
             azimut += " °"
+        azimut = azimut.replace(',', '.')
+        #print(azimut)
         return azimut
         #print(azimut)
     elif select == "EL":
@@ -495,52 +583,57 @@ def get_AZ_EZ(select, data):
                 elevation = elevation[:-1] + " °"
              else:
                 elevation += " °"
+        elevation = elevation.replace(',', '.')        
         return elevation
         #print(elevation)
     
 def ant_orientation_set_a():
-    global config_or
-    #dialog = cstk.CTkInputDialog(text="Type in an azimuth of antenna:", title="Manual antenna orientation setting")
-    #print("Number:", dialog.get_input()) 
-    #print(dialog.get_input()) 
-    val = entry_7.get()
-    if val == None:
-        return
-    
-    orientation_manual_TK.set(val)
-    #config_or = float(val[:-2])
-    config_or = val
-    error_state = q_state.get()
-    error_state[5] = evaluate_state("C", float(val[:-2]))
-    q_state.put(error_state)
-    q_state.task_done()
+    if switch_com_TK.get() == "Switch: Connected":
+        global config_or
+        #dialog = cstk.CTkInputDialog(text="Type in an azimuth of antenna:", title="Manual antenna orientation setting")
+        #print("Number:", dialog.get_input()) 
+        #print(dialog.get_input()) 
+        val = entry_7.get()
+        if val == None:
+            return
+        
+        orientation_manual_TK.set(val)
+        #config_or = float(val[:-2])
+        config_or = val
+        error_state = q_state.get()
+        error_state[5] = evaluate_state("C", float(val[:-2]))
+        q_state.put(error_state)
+        q_state.task_done()
 
-    if True in error_state:
-        state.set("Warning!")
-        entry_11.configure(text_color = "red")
+        if True in error_state:
+            state.set("Warning!")
+            entry_11.configure(text_color = "red")
+        else:
+            state.set("Normal state")
+            entry_11.configure(text_color = "green")
+
+        if error_state[5]:
+            entry_7.configure(text_color = "red") 
+        elif entry_7.cget("text_color") == "red":
+            entry_7.configure(text_color = "black") 
+
+        try:
+            with open("config.txt", "r", encoding = "utf-8") as config:
+                content = config.readlines()
+                config.close()
+                content[0] = val + "\n"    
+            with open("config.txt", "w", encoding = "utf-8") as config:
+                config.writelines(content)
+                config.close()
+        except:
+            config = open("config.txt", "x", encoding = "utf-8")
+            config.write("\n")
+            config.write(val + "\n")
+            config.close()
+
+        msg.CTkMessagebox(message = "Antenna azimuth was set!", title = "Antenna azimuth set")
     else:
-        state.set("Normal state")
-        entry_11.configure(text_color = "green")
-
-    if error_state[5]:
-        entry_7.configure(text_color = "red") 
-    elif entry_7.cget("text_color") == "red":
-        entry_7.configure(text_color = "black") 
-
-    try:
-        with open("config.txt", "r", encoding = "utf-8") as config:
-            content = config.readlines()
-            config.close()
-            content[0] = val + "\n"    
-        with open("config.txt", "w", encoding = "utf-8") as config:
-            config.writelines(content)
-            config.close()
-    except:
-        config = open("config.txt", "x", encoding = "utf-8")
-        config.write(val + "\n")
-        config.close()
-
-    msg.CTkMessagebox(message = "Antenna azimuth was set!", title = "Antenna azimuth set")
+        msg.CTkMessagebox(message = "No data", title = "No data from switch!")
 
 def ant_orientation_set_m():
     global config_or
@@ -566,22 +659,26 @@ def ant_orientation_set_m():
         else:
             orientation_manual_TK.set(text + " °")
             #r_or = entry_7.get()
-            config_or = text + " °\n"
-            error_state = q_state.get()
-            error_state[5] = evaluate_state("C", float(text))
-            q_state.put(error_state)
-            q_state.task_done()
-            if True in error_state:
-                state.set("Warning!")
-                entry_11.configure(text_color = "red")
-            else:
-                state.set("Normal state")
-                entry_11.configure(text_color = "green")
+            config_or = text + " °"#\n
 
-            if error_state[5]:
-                entry_7.configure(text_color = "red") 
-            elif entry_7.cget("text_color") == "red":
-                entry_7.configure(text_color = "black")
+            error_state = q_state.get()
+            cur_az = orientation_TK.get()
+            if cur_az:
+                error_state[5] = evaluate_state("C", float(cur_az[:-2]))
+                q_state.put(error_state)
+                q_state.task_done()
+                if True in error_state:
+                    state.set("Warning!")
+                    entry_11.configure(text_color = "red")
+                else:
+                    state.set("Normal state")
+                    entry_11.configure(text_color = "green")
+
+                if error_state[5]:
+                    entry_7.configure(text_color = "red") 
+                elif entry_7.cget("text_color") == "red":
+                    entry_7.configure(text_color = "black") 
+
             try:
                 with open("config.txt", "r", encoding = "utf-8") as config:
                     content = config.readlines()
@@ -592,30 +689,42 @@ def ant_orientation_set_m():
                     config.close()
             except:
                 config = open("config.txt", "x", encoding = "utf-8")
-                config.write(text + " °\n")
+                config.writelines([text + " °\n", "\n", "\n", "\n", "\n", "\n", "\n", "\n", "\n", "\n"])
                 config.close()
     except:
         msg.CTkMessagebox(title="No change.", message="No change.")
            
 def auto_select_ant():
+    #print(orientation_manual_TK.get()[:-3].encode("utf-8"))
     try:
-        ant_orintation = float(orientation_manual_TK.get()[:-1])
+        #print(orientation_manual_TK.get(), len(orientation_manual_TK.get()))
+        ant_orientation = float(orientation_manual_TK.get()[:-2])
+        #print("chyba1")
+        #print(azimut_TK.get()[:-1])
         az = float(azimut_TK.get()[:-1])
+        
         ant = 1
-        if az >= divmod(ant_orintation - 45, 360)[1] and az <= divmod(ant_orintation + 45, 360)[1]:     
+        if az >= divmod(ant_orientation - 45, 360)[1] and az <= divmod(ant_orientation + 45, 360)[1]:     
             ant = 1
-        elif az >= divmod(ant_orintation + 45, 360)[1] and az <= divmod(ant_orintation + 135, 360)[1]:
+            #ant1_on.set(True)
+        elif az >= divmod(ant_orientation + 45, 360)[1] and az <= divmod(ant_orientation + 135, 360)[1]:
             ant = 2
-        elif az >= divmod(ant_orintation + 135, 360)[1] and az <= divmod(ant_orintation + 225, 360)[1]:
+            #ant2_on.set(True)
+        elif az >= divmod(ant_orientation + 135, 360)[1] and az <= divmod(ant_orientation + 225, 360)[1]:
             ant = 3
-        elif az >= divmod(ant_orintation + 225, 360)[1] and az <= divmod(ant_orintation + 315, 360)[1]:
+            #ant3_on.set(True)
+        elif az >= divmod(ant_orientation + 225, 360)[1] and az <= divmod(ant_orientation + 315, 360)[1]:
             ant = 4
+            #ant4_on.set(True)
         return ant
     except:
+        #print("chyba3")
         return 1
 
 def com_select(choice):
     global ser_com
+    if not com_menu.cget("values"):
+        com_menu.configure(values = available_com())
     if ping(choice):
         #ser_com = serial_start(choice)
         switch_com_TK.set("Switch: Connected")
@@ -634,8 +743,11 @@ def com_select(choice):
                         config.close()
                 except:
                     msg.CTkMessagebox(title="Settings not saved.", message="Settings not saved. Unable to write to configuration file.")
+            
             ser_com = serial_start(choice)
-            threading.Thread(target = update_data_from_switch, daemon = True).start()
+            if ser_com:
+                switch_com_TK.set("Switch: Connected")   
+                threading.Thread(target = update_data_from_switch, daemon = True).start()
         except:
             try:
                 with open("config.txt", "w", encoding = "utf-8") as config:
@@ -645,6 +757,245 @@ def com_select(choice):
                 msg.CTkMessagebox(title="Settings not saved.", message = "Settings not saved. Error while saving the serial port setting.")
     else:
         switch_com_TK.set("Switch: Disconnected")
+
+def create_new_window():
+    print("nove okno")
+    btn_3.configure(state = "disabled")
+    try:
+        with open("config.txt", "r", encoding = "utf-8") as config:
+            content = config.readlines()
+            config.close()
+        max_cur_A.set(content[2][:-1])
+        max_cur_B.set(content[3][:-1])
+        max_temp_n_A.set(content[4][:-1])
+        max_temp_p_A.set(content[5][:-1])
+        max_temp_n_B.set(content[6][:-1])
+        max_temp_p_B.set(content[7][:-1])
+        max_az_dev.set(content[8][:-1])      
+        min_u_fant.set(content[9][:-1])
+        max_u_fant.set(content[10][:-1])
+        B_connected.set(bool(float(content[11][:-1])))
+    except:
+        max_cur_A.set("650")
+        max_cur_B.set("650")
+        max_temp_n_A.set("-10")
+        max_temp_p_A.set("50")
+        max_temp_n_B.set("-10")
+        max_temp_p_B.set("50")
+        max_az_dev.set("10")
+        B_connected.set(False)
+        max_u_fant.set("12")
+        min_u_fant.set("7")
+
+    app_set_range = cstk.CTkToplevel(app)
+    app_set_range.title("Set error tresholds")
+    app_set_range.focus()
+    #app_set_range.state("zoomed")
+    L_title = cstk.CTkLabel(app_set_range, text = "Settings", font = ("Cambria", 17, "bold"), anchor = "center")
+    L_title.grid(column = 0, columnspan = 2, row = 0, sticky = "NSEW")
+
+    L_set_current_A = cstk.CTkLabel(app_set_range, text = "Set error treshold for curretn to LNAs on A board [mA]:", font = ("Cambria", 14, "bold"))
+    L_set_current_A.grid(column = 0, columnspan = 2, row = 1, padx = 50, pady = 2, sticky = "NSEW")
+
+    E_set_current_A = cstk.CTkEntry(app_set_range, textvariable = max_cur_A, font = ("Cambria", 14))
+    E_set_current_A.grid(column = 0, columnspan = 2, row = 2, padx = 50, sticky = "NSEW")
+
+    L_set_current_B = cstk.CTkLabel(app_set_range, text = "Set error treshold for curretn to LNAs on B board [mA]:", font = ("Cambria", 14, "bold"))
+    L_set_current_B.grid(column = 0, columnspan = 2, row = 3, padx = 50, pady = 2, sticky = "NSEW")
+
+    E_set_current_B = cstk.CTkEntry(app_set_range, textvariable = max_cur_B, font = ("Cambria", 14))
+    E_set_current_B.grid(column = 0, columnspan = 2, row = 4, padx = 50, sticky = "NSEW")
+
+    L_set_temp_n_A = cstk.CTkLabel(app_set_range, text = "Set lower error treshold for temperature of A board [°C]:", font = ("Cambria", 14, "bold"))
+    L_set_temp_n_A.grid(column = 0, columnspan = 2, row = 5, padx = 50, pady = 2, sticky = "NSEW")
+
+    E_set_temp_n_A = cstk.CTkEntry(app_set_range, textvariable = max_temp_n_A, font = ("Cambria", 14))
+    E_set_temp_n_A.grid(column = 0, columnspan = 2, row = 6, padx = 50, sticky = "NSEW")
+
+    L_set_temp_p_A = cstk.CTkLabel(app_set_range, text = "Set upper error treshold for temperature of A board [°C]:", font = ("Cambria", 14, "bold"))
+    L_set_temp_p_A.grid(column = 0, columnspan = 2, row = 7, padx = 50, pady = 2, sticky = "NSEW")
+
+    E_set_temp_p_A = cstk.CTkEntry(app_set_range, textvariable = max_temp_p_A, font = ("Cambria", 14))
+    E_set_temp_p_A.grid(column = 0, columnspan = 2, row = 8, padx = 50, sticky = "NSEW")
+
+    L_set_temp_n_B = cstk.CTkLabel(app_set_range, text = "Set lower error treshold for temperature of B board [°C]:", font = ("Cambria", 14, "bold"))
+    L_set_temp_n_B.grid(column = 0, columnspan = 2, row = 9, padx = 50, pady = 2, sticky = "NSEW")
+
+    E_set_temp_n_B = cstk.CTkEntry(app_set_range, textvariable = max_temp_n_B, font = ("Cambria", 14))
+    E_set_temp_n_B.grid(column = 0, columnspan = 2, row = 10, padx = 50, sticky = "NSEW")
+
+    L_set_temp_p_B = cstk.CTkLabel(app_set_range, text = "Set upper error treshold for temperature of B board [°C]:", font = ("Cambria", 14, "bold"))
+    L_set_temp_p_B.grid(column = 0, columnspan = 2, row = 11, padx = 50, pady = 2, sticky = "NSEW")
+
+    E_set_temp_p_B = cstk.CTkEntry(app_set_range, textvariable = max_temp_p_B, font = ("Cambria", 14))
+    E_set_temp_p_B.grid(column = 0, columnspan = 2, row = 12, padx = 50, sticky = "NSEW")
+
+    L_set_dev_az = cstk.CTkLabel(app_set_range, text = "Set error treshold for deviation from antenna azimuth [°]:", font = ("Cambria", 14, "bold"))
+    L_set_dev_az.grid(column = 0, columnspan = 2, row = 13, padx = 50, pady = 2, sticky = "NSEW")
+
+    E_set_dev_az = cstk.CTkEntry(app_set_range, textvariable = max_az_dev, font = ("Cambria", 14))
+    E_set_dev_az.grid(column = 0, columnspan = 2, row = 14, padx = 50, sticky = "NSEW")
+    
+    L_set_n_U = cstk.CTkLabel(app_set_range, text = "Set lower error treshold for phantom voltage [V]:", font = ("Cambria", 14, "bold"))
+    L_set_n_U.grid(column = 0, columnspan = 2, row = 15, padx = 50, pady = 2, sticky = "NSEW")
+
+    E_set_n_U = cstk.CTkEntry(app_set_range, textvariable = min_u_fant, font = ("Cambria", 14))
+    E_set_n_U.grid(column = 0, columnspan = 2, row = 16, padx = 50, sticky = "NSEW")
+
+    L_set_p_U = cstk.CTkLabel(app_set_range, text = "Set upper error treshold for phantom voltage [V]:", font = ("Cambria", 14, "bold"))
+    L_set_p_U.grid(column = 0, columnspan = 2, row = 17, padx = 50, pady = 2, sticky = "NSEW")
+
+    E_set_p_U = cstk.CTkEntry(app_set_range, textvariable = max_u_fant, font = ("Cambria", 14))
+    E_set_p_U.grid(column = 0, columnspan = 2, row = 18, padx = 50, sticky = "NSEW")
+
+    L_set_B_conn = cstk.CTkLabel(app_set_range, text = "B board is connected:", font = ("Cambria", 14, "bold"))
+    L_set_B_conn.grid(column = 0, columnspan = 2, row = 19, padx = 50, pady = 2, sticky = "NSEW")
+
+    CH_set_B_conn = cstk.CTkCheckBox(app_set_range, variable = B_connected, onvalue = True, offvalue = False, text = "Yes", font = ("Cambria", 14, "bold"))
+    CH_set_B_conn.grid(column = 0, columnspan = 2, row = 20, padx = 50, pady = 2, sticky = "NSEW")
+
+    B_set = cstk.CTkButton(app_set_range, text = "Save", font = ("Cambria", 14), command = lambda: set_tresholds(app_set_range))
+    B_set.grid(column = 0, row = 21, padx = 20, pady = 10, sticky = "NSEW")
+
+    B_close = cstk.CTkButton(app_set_range, text = "Close", font = ("Cambria", 14), command = lambda: close_settings(app_set_range))
+    B_close.grid(column = 1, row = 21, padx = 20, pady = 10, sticky = "NSEW")
+
+    app_set_range.protocol("WM_DELETE_WINDOW", lambda:close_settings(app_set_range))
+    #print(app_set_range.children.items())
+    app_set_range.after_idle(app_set_range.lift)
+
+def set_tresholds(app_set_range):
+    wrong_entry = []
+    value_list = []
+    #print(app_set_range.children.keys())
+    for n in app_set_range.children.keys():
+        if "entry" in n or "checkbox" in n:
+            try:
+                #print("dobrý4")
+                text_value = app_set_range.children[n].get()
+                #print("dobrý3")
+                if isinstance(text_value, str):
+                    text_value = text_value.replace(',', '.').strip('\n')
+                #print("dobrý1")
+                value = float(text_value)
+                #print("dobrý2")
+                if ('4' in n or '6' in n) and (value < value_list[-1]):
+                    #print("něco spatně")
+                    value_list.append(None)
+                    raise Exception()
+                elif ('2' in n or  n =='!ctkentry') and value < 20:
+                    value_list.append(None)
+                    raise Exception()
+                elif '7' in n and value < 0:
+                    value_list.append(None)
+                    raise Exception()
+                elif '8' in n and value < 0:
+                    value_list.append(None)
+                    raise Exception()
+                elif '9' in n and (value < value_list[-1]) or ('9' in n and value < 0):
+                    value_list.append(None)
+                    raise Exception()
+                
+                value_list.append(value)
+
+                wrong_entry.append(False)
+
+            except:
+                app_set_range.children[n].configure(text_color = "red")
+                wrong_entry.append(True)
+                print("chyba")
+   
+    try:
+        with open("config.txt", "r", encoding = "utf-8") as config:
+            content = config.readlines()
+            config.close()
+        
+        for n in range(len(value_list)):
+            try:
+                if not wrong_entry[n]:
+                    content[n + 2] = str(value_list[n]) + "\n"
+            except:
+                if not wrong_entry[n]:
+                    content.append(str(value_list[n]) + "\n")
+                else:
+                    content.append("\n")
+
+        with open("config.txt", "w", encoding = "utf-8") as config:
+            config.writelines(content)
+            config.close()
+    except:
+        config = open("config.txt", "x", encoding = "utf-8")
+        content = ["\n", "\n"]
+        for n in range(len(value_list)):
+            if wrong_entry[n]:
+                content.append(str(value_list[n]) + "\n")
+            else:
+                content.append("\n")
+        config.writelines(content)
+        config.close()
+    
+    if True in wrong_entry:
+        msg.CTkMessagebox(title="Error", message="Invalid value!")
+    else:
+        error_state = q_state.get()
+        error_state[0] = evaluate_state("IA", float(cur_A_TK.get()))
+        error_state[1] = evaluate_state("IB", float(cur_B_TK.get()))
+        error_state[2] = evaluate_state("U", float(fant_volt_TK.get()))
+        error_state[3] = evaluate_state("TA", float(temp_A_TK.get()))
+        error_state[4] = evaluate_state("TB", float(temp_B_TK.get()))
+        error_state[5] = evaluate_state("C", float(orientation_TK.get()[:-2]))
+        q_state.put(error_state)
+        q_state.task_done()
+
+
+        if True in error_state:
+            state.set("Warning!")
+            entry_11.configure(text_color = "red")
+        else:
+            state.set("Normal state")
+            entry_11.configure(text_color = "green")
+        
+        if error_state[0]:
+            entry_5.configure(text_color = "red")
+
+        elif entry_5.cget("text_color") == "red":
+            entry_5.configure(text_color = "black")
+
+        if error_state[1]:
+            entry_8.configure(text_color = "red")  
+
+        elif entry_8.cget("text_color") == "red":
+            entry_8.configure(text_color = "black") 
+
+        if error_state[2]:
+            entry_4.configure(text_color = "red") 
+
+        elif entry_4.cget("text_color") == "red":
+            entry_4.configure(text_color = "black") 
+
+        if error_state[3]:
+            entry_6.configure(text_color = "red")
+
+        elif entry_6.cget("text_color") == "red":
+            entry_6.configure(text_color = "black")
+
+        if error_state[4]:
+            entry_9.configure(text_color = "red")
+
+        elif entry_9.cget("text_color") == "red":
+            entry_9.configure(text_color = "black")
+
+        if error_state[5]:
+            entry_7.configure(text_color = "red") 
+
+        elif entry_7.cget("text_color") == "red":
+            entry_7.configure(text_color = "black") 
+        
+        close_settings(app_set_range)
+
+def close_settings(app_set_range):
+    btn_3.configure(state = "normal")
+    app_set_range.destroy()
 
 cstk.set_appearance_mode("System")
 app = cstk.CTk()
@@ -683,9 +1034,24 @@ el_comp_TK = cstk.StringVar()
 c_ant = cstk.StringVar()
 conn_B = cstk.StringVar()
 orientation_manual_TK = cstk.StringVar()
-state = cstk.StringVar(value = "Evaluating...")
+state = cstk.StringVar(value = "Waiting for data...")
+max_cur_A = cstk.StringVar()
+max_cur_B = cstk.StringVar()
+max_temp_n_A = cstk.StringVar()
+max_temp_n_B = cstk.StringVar()
+max_temp_p_A = cstk.StringVar()
+max_temp_p_B = cstk.StringVar()
+max_az_dev = cstk.StringVar()
+B_connected = cstk.BooleanVar()
+max_u_fant = cstk.StringVar()
+min_u_fant = cstk.StringVar()
 list_com = []
 config_com = ""
+ant_old = 0
+block = False
+delay_read_UI = 5#30 
+delay_read_T = 300
+delay_read_C = 900
 #error_state = [False, False, False, False, False, False]# IA IB FU TA TB CE
 #global ser_com
 q_UI = queue.Queue()
@@ -720,11 +1086,32 @@ try:
     config_or = config.readline()
     orientation_manual_TK.set(config_or)
     config_com = config.readline()
+    max_cur_A.set(config.readline().strip("\n"))
+    max_cur_B.set(config.readline().strip("\n"))
+    max_temp_n_A.set(config.readline().strip("\n"))
+    max_temp_p_A.set(config.readline().strip("\n"))
+    max_temp_n_B.set(config.readline().strip("\n"))
+    max_temp_p_B.set(config.readline().strip("\n"))
+    max_az_dev.set(config.readline().strip("\n"))
+    max_u_fant.set(config.readline().strip("\n"))
+    min_u_fant.set(config.readline().strip("\n"))
+    B_connected.set(bool(float(config.readline().strip("\n"))))
     #print(config_com)
     config.close()
 except:
     config = open("config.txt", "x", encoding = "utf-8")
+    config.writelines(["\n","\n", "650\n", "650\n", "-10\n", "50\n", "-10\n", "50\n", "10\n", "7\n", "12\n", "0\n"])
     config.close()
+    max_cur_A.set("650")
+    max_cur_B.set("650")
+    max_temp_n_A.set("-10")
+    max_temp_p_A.set("50")
+    max_temp_n_B.set("-10")
+    max_temp_p_B.set("50")
+    max_az_dev.set("10")
+    max_u_fant.set("12")
+    min_u_fant.set("7")
+    B_connected.set(False)
 
 get_com = available_com()
 
@@ -778,7 +1165,7 @@ entry_2 = cstk.CTkEntry(fr_sat_pos, font = ("Cambria", 14), state = "disabled", 
 entry_2.grid(column = 1, row = 2, padx = 2, sticky = "W")
 label_5 = cstk.CTkLabel(fr_sat_pos, text = "Antenna in use:", font = ("Cambria", 14))
 label_5.grid(column = 0, row = 3, columnspan = 2, pady = 10, sticky = "NSEW")
-entry_3 = cstk.CTkEntry(fr_sat_pos, font = ("Cambria", 14), state = "disabled", width = 80, textvariable = ant_TK)
+entry_3 = cstk.CTkEntry(fr_sat_pos, font = ("Cambria", 14), state = "disabled", width = 80, textvariable = ant_TK, justify = "center")
 entry_3.grid(column = 0, row = 4, columnspan = 2, padx = 30, sticky = "NSEW")
 
 fr_status = cstk.CTkFrame(app, width = 250, height = 230)
@@ -816,7 +1203,7 @@ entry_7.grid(column = 1, row = 4, padx = 2, sticky = "WE")
 entry_12 = cstk.CTkEntry(fr_status, font = ("Cambria", 14), state = "disabled", width = 70, textvariable = orientation_manual_TK)
 entry_12.grid(column = 2, row = 4, padx = 2, sticky = "WE")
 
-entry_11 = cstk.CTkEntry(fr_status, font = ("Cambria", 14), state = "disabled", width = 70, textvariable = state)
+entry_11 = cstk.CTkEntry(fr_status, font = ("Cambria", 14), state = "disabled", width = 70, textvariable = state, justify = "center")
 entry_11.grid(column = 0, row = 5, columnspan = 3, padx = 70, pady = 5, sticky = "WE")
 
 fr_ant_ctrl = cstk.CTkFrame(app, width = 200, height = 260)
@@ -850,18 +1237,22 @@ btn_1 = cstk.CTkButton(fr_settings, corner_radius = 3, text = "Manula ant. \n or
 btn_1.grid(column = 0, row = 0, sticky = "NWES", padx = 5, pady = 10)
 btn_2 = cstk.CTkButton(fr_settings, corner_radius = 3, text = "Set current \n ant. orienation", font = ("Cambria", 14), command = ant_orientation_set_a)
 btn_2.grid(column = 1, row = 0, sticky = "NWES", padx = 5, pady = 10)
+btn_3 = cstk.CTkButton(fr_settings, corner_radius = 3, text = "App settings", font = ("Cambria", 14), command = create_new_window)
+btn_3.grid(column = 0, columnspan = 2, row = 3, sticky = "NWES", padx = 35, pady = 40)
 
 label_14 = cstk.CTkLabel(fr_settings,  font = ("Cambria", 14), text = "Serial port:") #, width=200
 label_14.grid(column = 0, columnspan =2, row = 1, sticky = "S", pady = 5)
 com_menu = cstk.CTkOptionMenu(fr_settings, font = ("Cambria", 14), values = list_com, command = com_select, width = 30, anchor = "center", variable = com_TK)
 com_menu.grid(column = 0, columnspan =2, row = 2, sticky = "N", pady = 5)
+#app.grid_rowconfigure(4, weight = 1)
 
 label_12 = cstk.CTkLabel(app, textvariable = orbitron_conn_TK, font = ("Cambria", 12, "italic"), fg_color = "#d9d9d9", height = 15) #, width=200
 label_12.grid(column = 0, row = 6, sticky = "EWNS", pady = 18)
 label_13 = cstk.CTkLabel(app, textvariable = switch_com_TK, font = ("Cambria", 12, "italic"), fg_color = "#d9d9d9", height = 15) #, width=200
 label_13.grid(column = 1, row = 6, sticky = "EWNS", pady = 18)
-
-app.after(500, update_data_from_orbitron)
+app.grid_rowconfigure(5, weight = 1)
+#app.grid_rowconfigure(6, weight = 1)
+#app.after(1500, update_data_from_orbitron)
 
 #s_UI = schedule.every(3).minutes.do(read_U_I)
 #app.after(0, serial_get_data)
@@ -871,27 +1262,27 @@ app.after(500, update_data_from_orbitron)
 #t1 = threading.Thread(target = update_data_from_switch, args = (ser_com,), daemon = True)
 #t1 = threading.Thread(target = read_U_I, daemon = True)#, daemon = True
 #t1.start()
-t1 = threading.Timer(function = read_U_I, interval = 180)#, daemon = True
+t1 = threading.Timer(function = read_U_I, interval = delay_read_UI)#, daemon = True
 t1.daemon = True
 t1.start()
 
-t2 = threading.Timer(function = read_temp, interval = 300)#, daemon = True
+t2 = threading.Timer(function = read_temp, interval = delay_read_T)#, daemon = True
 t2.daemon = True
 t2.start()
 
-t3 = threading.Timer(function = read_orient, interval = 900)#, daemon = True
+t3 = threading.Timer(function = read_orient, interval = delay_read_C)#, daemon = True
 t3.daemon = True
 t3.start()
 #t2 = threading.Thread(target = read_temp, daemon = True)
 #t2.start()
 #app.after(501, t1.start)
 if first_data:
-    app.after(501, threading.Thread(target = update_data_from_switch, daemon = True).start)
+    app.after(200, threading.Thread(target = update_data_from_switch, daemon = True).start)
 
 #t2 = threading.Thread(target = update_temp, args = (ser_com,), daemon = True)
-app.after(300100 , update_temp)
-app.after(180100, update_current_voltage)
-app.after(900100,update_orintation)
+app.after(delay_read_T * 1000 + 3000, update_temp)#300100
+app.after(delay_read_UI * 1000 + 3500, update_current_voltage)
+app.after(delay_read_C * 1000 + 3000, update_orintation)#900100
 
 #app.after(5000, threading.Thread(target = read_U_I, daemon=True).start)#1800000
 #app.after(60000, update_vlotage)

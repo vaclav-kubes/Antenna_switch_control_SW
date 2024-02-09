@@ -41,6 +41,7 @@ def serial_start(com):
 def serial_write(ser, data):
     try:
         ser.write(bytes(data, "ascii"))
+        #print(a)
         ser.flush()
         time.sleep(0.07)
         #ser.flushOutput()
@@ -54,7 +55,7 @@ def serial_read(ser):
     try:
         msg = ser.readline()
         #ser.flushInput()
-    #print(msg)
+        #print(msg)
         return msg
     except:
         return None

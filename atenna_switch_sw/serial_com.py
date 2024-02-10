@@ -1,7 +1,6 @@
 import serial as s
 import serial.tools.list_ports
 import time
-from serial.threaded import ReaderThread, Protocol, LineReader
 
 def ping(com):
     try:
@@ -123,59 +122,4 @@ def write_read(com, data):
     except:
         msg = False
     return msg
-
-def write_read_th(com, data):
-    try:
-        ser = s.Serial(port = com, baudrate = 9600, parity = s.PARITY_NONE, bytesize = s.EIGHTBITS, stopbits = 1, timeout = 3, dsrdtr=True)
-        ser.dtr = False
-        time.sleep(0.1)
-        ser.write(bytes(data, encoding = "ascii"))
-        ser.flush()
-        #print(bytes(data, encoding = "ascii"))
-        #time.sleep(0.5)
-        msg = ser.readline()
-        #print(msg)
-        ser.close()
-    
-    except:
-        msg = False
-    return msg
-
-#print(ping('COM6'))
-#print(write_read('COM6', "AL"))
-
-"""
-ser = s.Serial(port = "COM6", baudrate = 9600, parity = s.PARITY_NONE, bytesize = s.EIGHTBITS, stopbits = 1, timeout = 1)
-while True:    
-    
-    time.sleep(0.1)
-    msg = ser.read() 
-    print(msg)
-"""
-
-"""
-class SerialReaderProtocolLine(LineReader):
-    ##TERMINATOR = b'\n'
-
-    def connection_made(self, transport):
-        #Called when reader thread is started
-        super().connection_made(transport)
-        print("Connected, ready to receive data...")
-        self.write_line('hello world')
-
-    def handle_line(self, line):
-        #New line waiting to be processed
-        # Execute our callback in tk
-        print('tady')
-        print(line)
-
-
-ser = s.Serial(port = 'COM6', baudrate = 9600, parity = s.PARITY_NONE, bytesize = s.EIGHTBITS, stopbits = 1, timeout = 3, dsrdtr=True)
-ser.dtr = False
-s2 =  ReaderThread(protocol_factory = SerialReaderProtocolLine, serial_instance = ser).start()
-"""
-
-#s2.start()
-#print(s2.connect())
-#s2.write_line(b'hello')
 

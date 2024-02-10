@@ -1,5 +1,4 @@
 
-from queue import Empty
 from tkinter import *
 import CTkMessagebox as msg
 import customtkinter as cstk
@@ -9,8 +8,8 @@ from serial_com import *
 import time
 import threading
 import queue
-import schedule
 import datetime
+import webbrowser
 
 def log_error():
     try:
@@ -115,6 +114,7 @@ def auto_connect():
 def read_U_I():
     #global block
     #print("vlákno")
+    global ser_com
     while not q_done.get():
         q_done.task_done()
         time.sleep(0.3)
@@ -357,12 +357,13 @@ def update_current_voltage():#ser_com
     #print(data_V)
     #print("tkinter")
     try:
-        data_A = q_UI.get_nowait()
-        data_B = q_UI.get_nowait()
-        data_V = q_UI.get_nowait()
+        data_A = q_UI.get()
+        data_B = q_UI.get()
+        data_V = q_UI.get()
         #while not q_UI.empty():
             #q_UI.get()
         q_UI.task_done()
+        print(data_A,data_B,data_V)
         if data_A != None and data_B != None and data_V != None:
             cur_A_TK.set("{:.1f}".format(data_A))
             cur_B_TK.set("{:.1f}".format(data_B))
@@ -429,6 +430,7 @@ def update_orintation(): #ser_com
 def update_data_from_switch(): #[IA, IB, TA, TB, UF, EC, AN, CB] #ser_com
     #global ser_com
     global ant_old
+    global ser_com
     if ser_com:
         while not q_done.get():
             q_done.task_done()
@@ -553,6 +555,22 @@ def update_data_from_orbitron():
     #print(azimut_TK.get())
     #print(elevation_TK.get())
     """
+
+def check_conn_orbitron():
+    try:
+        c.ConnectTo("Orbitron", "Tracking")
+        if c.Connected() == 1:
+            print("Connection established")
+            #print(c.Request("TrackingData"))
+            orbitron_conn_TK.set("Orbitron: Connected")
+            update_data_from_orbitron()
+        else:
+            orbitron_conn_TK.set("Orbitron: Not running")
+            s.Shutdown()
+            app.after(2500, check_conn_orbitron)
+    except:
+        orbitron_conn_TK.set("Orbitron: Not running")
+        app.after(2500, check_conn_orbitron)
 
 
 def get_AZ_EZ(select, data):
@@ -727,7 +745,7 @@ def com_select(choice):
         com_menu.configure(values = available_com())
     if ping(choice):
         #ser_com = serial_start(choice)
-        switch_com_TK.set("Switch: Connected")
+        #switch_com_TK.set("Switch: Connected")
         try:
             with open("config.txt", "r", encoding = "utf-8") as config:
                 content = config.readlines()
@@ -745,6 +763,17 @@ def com_select(choice):
                     msg.CTkMessagebox(title="Settings not saved.", message="Settings not saved. Unable to write to configuration file.")
             
             ser_com = serial_start(choice)
+            
+            while not q_UI.empty():
+                q_UI.get()
+            q_UI.task_done()
+            while not q_temp.empty():
+                q_UI.get()
+            q_temp.task_done()
+            while not q_orient.empty():
+                q_UI.get()
+            q_orient.task_done()
+
             if ser_com:
                 switch_com_TK.set("Switch: Connected")   
                 threading.Thread(target = update_data_from_switch, daemon = True).start()
@@ -997,6 +1026,9 @@ def close_settings(app_set_range):
     btn_3.configure(state = "normal")
     app_set_range.destroy()
 
+def app_info():
+    webbrowser.open('https://github.com/vaclav-kubes/Antenna_switch_control_SW/blob/main/README.md')
+
 cstk.set_appearance_mode("System")
 app = cstk.CTk()
 app.geometry("630x590")
@@ -1030,9 +1062,6 @@ temp_B_TK = cstk.StringVar()
 cur_A_TK = cstk.StringVar()
 cur_B_TK = cstk.StringVar()
 fant_volt_TK = cstk.StringVar()
-el_comp_TK = cstk.StringVar()
-c_ant = cstk.StringVar()
-conn_B = cstk.StringVar()
 orientation_manual_TK = cstk.StringVar()
 state = cstk.StringVar(value = "Waiting for data...")
 max_cur_A = cstk.StringVar()
@@ -1048,10 +1077,10 @@ min_u_fant = cstk.StringVar()
 list_com = []
 config_com = ""
 ant_old = 0
-block = False
 delay_read_UI = 5#30 
 delay_read_T = 300
 delay_read_C = 900
+dde_con = False
 #error_state = [False, False, False, False, False, False]# IA IB FU TA TB CE
 #global ser_com
 q_UI = queue.Queue()
@@ -1067,18 +1096,25 @@ s = dde.CreateServer()
 s.Create("GetData")
 #create a conversation between client and server
 c = dde.CreateConversation(s)
-c.ConnectTo("Orbitron", "Tracking")
+try:
+    c.ConnectTo("Orbitron", "Tracking")
+    if c.Connected() == 1:
+        dde_con = True
+        print("Connection established")
+        print(c.Request("TrackingData"))
+        orbitron_conn_TK.set("Orbitron: Connected")
+    else:
+        azimut_TK.set("00")
+        elevation_TK.set("00")
+        orbitron_conn_TK.set("Orbitron: Not running")
+        s.Shutdown()
+except:
+    orbitron_conn_TK.set("Orbitron: Not running")
+    azimut_TK.set("00")
+    elevation_TK.set("00")
 
 #if the connection succeeds, proceed with requests to PhotoModeler
-if c.Connected() == 1:
-    print("Connection established")
-    print(c.Request("TrackingData"))
-    orbitron_conn_TK.set("Orbitron: Connected")
-else:
-    azimut_TK.set("??")
-    elevation_TK.set("??")
-    orbitron_conn_TK.set("Orbitron: Disconnected")
-    s.Shutdown()
+
 
 
 try:
@@ -1144,10 +1180,12 @@ else:
 
 label_1 = cstk.CTkLabel(app, text = "Antenna switch controller", font = ("Cambria", 20, "bold"), anchor = "center")
 label_1.grid(column = 0, row = 0, columnspan = 2, sticky = "NSEW")
+app.grid_rowconfigure(0, weight = 1)
 
 fr_sat_pos = cstk.CTkFrame(app, width=200, height=200) #, width=200, height=200, fg_color="#e3e3e3"
-fr_sat_pos.grid(column = 0, row = 1, rowspan = 2, padx = 20, pady = 20, sticky = "NSEW")#
+fr_sat_pos.grid(column = 0, row = 1, padx = 20, pady = 20, sticky = "NSEW")#, rowspan = 2
 fr_sat_pos.grid_propagate(False)
+app.grid_rowconfigure(1, weight = 1)
 fr_sat_pos.columnconfigure(0,weight = 1)
 fr_sat_pos.columnconfigure(1,weight = 1)
 #fr_sat_pos.rowconfigure(0,weight = 1)
@@ -1169,10 +1207,11 @@ entry_3 = cstk.CTkEntry(fr_sat_pos, font = ("Cambria", 14), state = "disabled", 
 entry_3.grid(column = 0, row = 4, columnspan = 2, padx = 30, sticky = "NSEW")
 
 fr_status = cstk.CTkFrame(app, width = 250, height = 230)
-fr_status.grid(column = 1, row = 1, rowspan = 2, padx = 20, pady = 20, sticky = "NSEW")
-fr_status.columnconfigure(0,weight = 1)
-fr_status.columnconfigure(1,weight = 1)
-fr_status.columnconfigure(2,weight = 1)
+fr_status.grid(column = 1, row = 1, padx = 20, pady = 20, sticky = "NSEW")#, rowspan = 2
+#app.grid_rowconfigure(2, weight = 1)
+fr_status.columnconfigure(0, weight = 1)
+fr_status.columnconfigure(1, weight = 1)
+fr_status.columnconfigure(2, weight = 1)
 fr_status.grid_propagate(False)
 label_6 = cstk.CTkLabel(fr_status, text = "Status info", font = ("Cambria", 15.5, "italic"), fg_color = "#a0a3a8", corner_radius = 3, width=200)
 label_6.grid(column = 0, row = 0, columnspan = 3, sticky = "NSEW")
@@ -1207,7 +1246,8 @@ entry_11 = cstk.CTkEntry(fr_status, font = ("Cambria", 14), state = "disabled", 
 entry_11.grid(column = 0, row = 5, columnspan = 3, padx = 70, pady = 5, sticky = "WE")
 
 fr_ant_ctrl = cstk.CTkFrame(app, width = 200, height = 260)
-fr_ant_ctrl.grid(column = 0, rowspan = 3, row = 3, padx = 20, sticky = "WE")
+fr_ant_ctrl.grid(column = 0, row = 2, padx = 20, sticky = "WE")#, rowspan = 3
+#app.grid_rowconfigure(3, weight = 1)
 fr_ant_ctrl.grid_propagate(False)
 fr_ant_ctrl.columnconfigure(0,weight = 1)
 fr_ant_ctrl.columnconfigure(1,weight = 1)
@@ -1229,7 +1269,8 @@ checkbtn_5 = cstk.CTkCheckBox(fr_ant_ctrl, text = "Ant. 5", variable = ant5_on, 
 checkbtn_5.grid(column = 1, row = 7, pady = 3)
 
 fr_settings = cstk.CTkFrame(app, width = 200, height = 260)
-fr_settings.grid(column = 1, rowspan = 3, row = 3, padx = 20, sticky = "WE")
+fr_settings.grid(column = 1, row = 2, padx = 20, sticky = "WE")#, rowspan = 3
+#app.grid_rowconfigure(4, weight = 1)
 fr_settings.grid_propagate(False)
 fr_settings.columnconfigure(0,weight = 1)
 fr_settings.columnconfigure(1,weight = 1)
@@ -1238,21 +1279,32 @@ btn_1.grid(column = 0, row = 0, sticky = "NWES", padx = 5, pady = 10)
 btn_2 = cstk.CTkButton(fr_settings, corner_radius = 3, text = "Set current \n ant. orienation", font = ("Cambria", 14), command = ant_orientation_set_a)
 btn_2.grid(column = 1, row = 0, sticky = "NWES", padx = 5, pady = 10)
 btn_3 = cstk.CTkButton(fr_settings, corner_radius = 3, text = "App settings", font = ("Cambria", 14), command = create_new_window)
-btn_3.grid(column = 0, columnspan = 2, row = 3, sticky = "NWES", padx = 35, pady = 40)
+btn_3.grid(column = 0, columnspan = 2, row = 3, sticky = "NWES", padx = 35, pady = 25)
+btn_4 = cstk.CTkButton(fr_settings, corner_radius = 3, text = "App info", font = ("Cambria", 14), command = app_info)
+btn_4.grid(column = 0, columnspan = 2, row = 4, sticky = "NWES", padx = 35)#, pady = -10
 
 label_14 = cstk.CTkLabel(fr_settings,  font = ("Cambria", 14), text = "Serial port:") #, width=200
 label_14.grid(column = 0, columnspan =2, row = 1, sticky = "S", pady = 5)
 com_menu = cstk.CTkOptionMenu(fr_settings, font = ("Cambria", 14), values = list_com, command = com_select, width = 30, anchor = "center", variable = com_TK)
 com_menu.grid(column = 0, columnspan =2, row = 2, sticky = "N", pady = 5)
-#app.grid_rowconfigure(4, weight = 1)
+#app.grid_rowconfigure(5, weight = 1)
+app.grid_rowconfigure(3, weight = 1, minsize = 20)
 
-label_12 = cstk.CTkLabel(app, textvariable = orbitron_conn_TK, font = ("Cambria", 12, "italic"), fg_color = "#d9d9d9", height = 15) #, width=200
-label_12.grid(column = 0, row = 6, sticky = "EWNS", pady = 18)
-label_13 = cstk.CTkLabel(app, textvariable = switch_com_TK, font = ("Cambria", 12, "italic"), fg_color = "#d9d9d9", height = 15) #, width=200
-label_13.grid(column = 1, row = 6, sticky = "EWNS", pady = 18)
-app.grid_rowconfigure(5, weight = 1)
+app.grid_rowconfigure(4, weight = 1)
+fr_conn1 = cstk.CTkFrame(app, corner_radius=0, height = 20)#, width = 200
+fr_conn1.grid(column = 0, row = 4, sticky = "WES")#, rowspan = 3, pady = 15
+label_12 = cstk.CTkLabel(fr_conn1, textvariable = orbitron_conn_TK, font = ("Cambria", 12, "italic")) #, fg_color = "#d9d9d9", width=200, height = 15
+label_12.pack(anchor = 's', side = "bottom")#.grid(column = 0, row = 3, sticky = "EW")#, pady = 18
+fr_conn2 = cstk.CTkFrame(app, corner_radius=0, height = 20)#, width = 200, height = 260
+fr_conn2.grid(column = 1, row = 4, sticky = "WES")#, rowspan = 3, padx = 15
+label_13 = cstk.CTkLabel(fr_conn2, textvariable = switch_com_TK, font = ("Cambria", 12, "italic")) #, fg_color = "#d9d9d9", width=200, height = 15
+label_13.pack(anchor = 's', side = "bottom")#grid(column = 1, row = 3, sticky = "EW")#, pady = 18
+
 #app.grid_rowconfigure(6, weight = 1)
-#app.after(1500, update_data_from_orbitron)
+if dde_con:
+    app.after(1500, update_data_from_orbitron)
+else:
+    app.after(2500, check_conn_orbitron)
 
 #s_UI = schedule.every(3).minutes.do(read_U_I)
 #app.after(0, serial_get_data)
@@ -1276,13 +1328,15 @@ t3.start()
 #t2 = threading.Thread(target = read_temp, daemon = True)
 #t2.start()
 #app.after(501, t1.start)
+app.after(delay_read_T * 1000 + 3000, update_temp)#300100
+app.after(delay_read_UI * 1000 + 3500, update_current_voltage)
+app.after(delay_read_C * 1000 + 3000, update_orintation)#900100
+
 if first_data:
     app.after(200, threading.Thread(target = update_data_from_switch, daemon = True).start)
 
 #t2 = threading.Thread(target = update_temp, args = (ser_com,), daemon = True)
-app.after(delay_read_T * 1000 + 3000, update_temp)#300100
-app.after(delay_read_UI * 1000 + 3500, update_current_voltage)
-app.after(delay_read_C * 1000 + 3000, update_orintation)#900100
+
 
 #app.after(5000, threading.Thread(target = read_U_I, daemon=True).start)#1800000
 #app.after(60000, update_vlotage)

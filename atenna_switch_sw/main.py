@@ -764,16 +764,27 @@ def com_select(choice):
             
             ser_com = serial_start(choice)
             
-            while not q_UI.empty():
-                q_UI.get()
-            q_UI.task_done()
-            while not q_temp.empty():
-                q_UI.get()
-            q_temp.task_done()
-            while not q_orient.empty():
-                q_UI.get()
-            q_orient.task_done()
+            try:
+                while not q_UI.empty():
+                    q_UI.get()
+                q_UI.task_done()
+            except:
+                pass
+                  
+            try:
+                while not q_temp.empty():
+                    q_temp.get()                   
+                q_temp.task_done()
+            except:
+                pass
 
+            try:
+                while not q_orient.empty():
+                    q_orient.get()
+                q_orient.task_done()
+            except:
+                pass
+        
             if ser_com:
                 switch_com_TK.set("Switch: Connected")   
                 threading.Thread(target = update_data_from_switch, daemon = True).start()
@@ -1131,9 +1142,10 @@ try:
     max_az_dev.set(config.readline().strip("\n"))
     max_u_fant.set(config.readline().strip("\n"))
     min_u_fant.set(config.readline().strip("\n"))
-    B_connected.set(bool(float(config.readline().strip("\n"))))
+    B_connected.set(bool(float(config.readline().strip("\n")+'0')))
     #print(config_com)
     config.close()
+    
 except:
     config = open("config.txt", "x", encoding = "utf-8")
     config.writelines(["\n","\n", "650\n", "650\n", "-10\n", "50\n", "-10\n", "50\n", "10\n", "7\n", "12\n", "0\n"])

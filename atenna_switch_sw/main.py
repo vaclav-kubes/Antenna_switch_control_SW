@@ -559,21 +559,19 @@ def auto_select_ant():
     except:
         return 1
 
+
 def ant_orientation_set_a():
-    if switch_com_TK.get() == "Switch: Connected":
+    """Set the antenna orientation to current orientation read from switch and save it to config file."""
+    if switch_com_TK.get() == "Switch: Connected":  #if the switch is connected
         global config_or
-        #dialog = cstk.CTkInputDialog(text="Type in an azimuth of antenna:", title="Manual antenna orientation setting")
-        #print("Number:", dialog.get_input()) 
-        #print(dialog.get_input()) 
-        val = entry_7.get()
-        if val == None:
+        val = entry_7.get() #retrieve the currnetly displlayed orientation
+        if val == None: #if it is empty, end
             return
         
-        orientation_manual_TK.set(val)
-        #config_or = float(val[:-2])
+        orientation_manual_TK.set(val)  #set the display the value
         config_or = val
         error_state = q_state.get()
-        error_state[5] = evaluate_state("C", float(val[:-2]))
+        error_state[5] = evaluate_state("C", float(val[:-2]))   #check for error if the orinetation is out of given range
         q_state.put(error_state)
         q_state.task_done()
 
@@ -589,7 +587,7 @@ def ant_orientation_set_a():
         elif entry_7.cget("text_color") == "red":
             entry_7.configure(text_color = "black") 
 
-        try:
+        try:    #write new value of antenna or. to config file
             with open("config.txt", "r", encoding = "utf-8") as config:
                 content = config.readlines()
                 config.close()
@@ -598,42 +596,38 @@ def ant_orientation_set_a():
                 config.writelines(content)
                 config.close()
         except:
-            config = open("config.txt", "x", encoding = "utf-8")
+            config = open("config.txt", "x", encoding = "utf-8")    #if config file dosnt exist then create new
             config.write("\n")
             config.write(val + "\n")
             config.close()
 
-        msg.CTkMessagebox(message = "Antenna azimuth was set!", title = "Antenna azimuth set")
+        msg.CTkMessagebox(message = "Antenna azimuth was set!", title = "Antenna azimuth set")  #pop up message that seting was succesful
     else:
-        msg.CTkMessagebox(message = "No data", title = "No data from switch!")
+        msg.CTkMessagebox(message = "No data", title = "No data from switch!")  #pop up message that seting was not succesful
+
 
 def ant_orientation_set_m():
+    """Function to set antenna orinetation. Set value is saved to confgi file."""
     global config_or
-    dialog = cstk.CTkInputDialog(text="Type in an azimuth of antenna:", title="Manual antenna orientation setting")
-    #print("Number:", dialog.get_input()) 
-    #print(dialog.get_input()) 
-    val = dialog.get_input()
-    if val == None:
+    dialog = cstk.CTkInputDialog(text="Type in an azimuth of antenna:", title="Manual antenna orientation setting") #pop up dialog with manual entry of antenna orientation
+    val = dialog.get_input()    #retrieve the value from the dialog
+    if val == None: #if no data from dialog then end this func
         return
     text = ''
-    for i in val:
-        #print(ord(i))
+    for i in val:   #extract only numbers from the dialog input 
         if ord(i) >= 48 and ord(i) <= 57 or ord(i) == 46:
             text += i
         elif ord(i) == 44:
-            text += '.'
-    print(text)
+            text += '.' #change "," to "."
     try:
-        dev = float(text)
-        print(dev)
-        if dev > 360.0 or dev < 0.0:
+        dev = float(text)   #try to convert string value to float
+        if dev > 360.0 or dev < 0.0:    #check if given value is in the range
             msg.CTkMessagebox(title="Invalid range", message="Azimuth should be in range from 0° to 360°.", icon = "warning")
         else:
-            orientation_manual_TK.set(text + " °")
-            #r_or = entry_7.get()
-            config_or = text + " °"#\n
+            orientation_manual_TK.set(text + " °")  #display newly set value of antenna or.
+            config_or = text + " °"
 
-            error_state = q_state.get()
+            error_state = q_state.get() #check the error state
             cur_az = orientation_TK.get()
             if cur_az:
                 error_state[5] = evaluate_state("C", float(cur_az[:-2]))
@@ -651,7 +645,7 @@ def ant_orientation_set_m():
                 elif entry_7.cget("text_color") == "red":
                     entry_7.configure(text_color = "black") 
 
-            try:
+            try:    #write down newly set antenna or.
                 with open("config.txt", "r", encoding = "utf-8") as config:
                     content = config.readlines()
                     config.close()
@@ -665,33 +659,35 @@ def ant_orientation_set_m():
                 config.close()
     except:
         msg.CTkMessagebox(title="No change.", message="No change.")
-           
+
+
 def com_select(choice):
+    """Function called after selcting from option menu. Tries to connect to selected COM port. 
+        Args:
+            choice (str): selected COM port from option menu
+    """
     global ser_com
     if not com_menu.cget("values"):
         com_menu.configure(values = available_com())
-    if ping(choice):
-        #ser_com = serial_start(choice)
-        #switch_com_TK.set("Switch: Connected")
+    if ping(choice):    #if MCU is responding on given COM port
         try:
-            with open("config.txt", "r", encoding = "utf-8") as config:
-                content = config.readlines()
-                #print(content)
-                config.close()
-                if len(content) == 1:
+            with open("config.txt", "r", encoding = "utf-8") as config: #save the selected COM port to config file
+                content = config.readlines()    #at first we have to read the content of config file
+                config.close()  
+                if len(content) == 1:   #if there is just one line in config file we append the COM port at the end of the file
                     content.append(choice + "\n")
                 else:
-                    content[1] = choice + "\n"
+                    content[1] = choice + "\n"  #if there is more lines the we owerwrite second line 
                 try:
-                    with open("config.txt", "w", encoding = "utf-8") as config:
+                    with open("config.txt", "w", encoding = "utf-8") as config: #save changes into config file
                         config.writelines(content)
                         config.close()
                 except:
                     msg.CTkMessagebox(title="Settings not saved.", message="Settings not saved. Unable to write to configuration file.")
             
-            ser_com = serial_start(choice)
+            ser_com = serial_start(choice)  #start ser. comm. on given COM port
             
-            try:
+            try:    #because the queues are loaded with None values if there is no ser. comm. it must be emptied before valid values will be loaded
                 while not q_UI.empty():
                     q_UI.get()
                 q_UI.task_done()
@@ -714,10 +710,10 @@ def com_select(choice):
         
             if ser_com:
                 switch_com_TK.set("Switch: Connected")   
-                threading.Thread(target = update_data_from_switch, daemon = True).start()
+                threading.Thread(target = update_data_from_switch, daemon = True).start()   #request all diag. data from switch
         except:
             try:
-                with open("config.txt", "w", encoding = "utf-8") as config:
+                with open("config.txt", "w", encoding = "utf-8") as config: #if there is no config file, then create new one
                     config.writelines(["\n", choice + "\n"])
                     config.close()
             except:
@@ -725,14 +721,15 @@ def com_select(choice):
     else:
         switch_com_TK.set("Switch: Disconnected")
 
+
 def create_new_window():
-    print("nove okno")
-    btn_3.configure(state = "disabled")
+    """Create settings window with widgets."""
+    btn_3.configure(state = "disabled") #disable opening of another same window
     try:
-        with open("config.txt", "r", encoding = "utf-8") as config:
+        with open("config.txt", "r", encoding = "utf-8") as config: #if there are limit values saved in config file then load them
             content = config.readlines()
             config.close()
-        max_cur_A.set(content[2][:-1])
+        max_cur_A.set(content[2][:-1])  #new line character is cutt of by [:-1]
         max_cur_B.set(content[3][:-1])
         max_temp_n_A.set(content[4][:-1])
         max_temp_p_A.set(content[5][:-1])
@@ -742,7 +739,7 @@ def create_new_window():
         min_u_fant.set(content[9][:-1])
         max_u_fant.set(content[10][:-1])
         B_connected.set(bool(float(content[11][:-1])))
-    except:
+    except: #otherwise load default values
         max_cur_A.set("650")
         max_cur_B.set("650")
         max_temp_n_A.set("-10")
@@ -754,10 +751,11 @@ def create_new_window():
         max_u_fant.set("12")
         min_u_fant.set("7")
 
-    app_set_range = cstk.CTkToplevel(app)
+    app_set_range = cstk.CTkToplevel(app)   #create new window
     app_set_range.title("Set error tresholds")
     app_set_range.focus()
-    #app_set_range.state("zoomed")
+
+    #pack the window with labels and entrys
     L_title = cstk.CTkLabel(app_set_range, text = "Settings", font = ("Cambria", 17, "bold"), anchor = "center")
     L_title.grid(column = 0, columnspan = 2, row = 0, sticky = "NSEW")
 
@@ -827,39 +825,40 @@ def create_new_window():
     B_close = cstk.CTkButton(app_set_range, text = "Close", font = ("Cambria", 14), command = lambda: close_settings(app_set_range))
     B_close.grid(column = 1, row = 21, padx = 20, pady = 10, sticky = "NSEW")
 
-    app_set_range.protocol("WM_DELETE_WINDOW", lambda:close_settings(app_set_range))
-    #print(app_set_range.children.items())
-    app_set_range.after_idle(app_set_range.lift)
+    app_set_range.protocol("WM_DELETE_WINDOW", lambda:close_settings(app_set_range))    #set what should happend if this window is closed
+    app_set_range.after_idle(app_set_range.lift)    #make sure that the window is on top
+
 
 def set_tresholds(app_set_range):
+    """Called after clicking on set button in Settings window. 
+    It makes sure that entered values are valid and highlights the wrong ones.
+    
+        Args: 
+            app_set_range (instance of window): Settings window
+    """
     wrong_entry = []
     value_list = []
-    #print(app_set_range.children.keys())
-    for n in app_set_range.children.keys():
-        if "entry" in n or "checkbox" in n:
+
+    for n in app_set_range.children.keys(): #for each widget in settings window
+        if "entry" in n or "checkbox" in n: #if the name of widget contains entry or checkbox
             try:
-                #print("dobrý4")
-                text_value = app_set_range.children[n].get()
-                #print("dobrý3")
-                if isinstance(text_value, str):
-                    text_value = text_value.replace(',', '.').strip('\n')
-                #print("dobrý1")
+                text_value = app_set_range.children[n].get()    #get the value of the widget
+                if isinstance(text_value, str): #if the value is string
+                    text_value = text_value.replace(',', '.').strip('\n')   #replace eventual "," with "." and cut out end of line
                 value = float(text_value)
-                #print("dobrý2")
-                if ('4' in n or '6' in n) and (value < value_list[-1]):
-                    #print("něco spatně")
+                if ('4' in n or '6' in n) and (value < value_list[-1]): #upper limits of temperature must be higher then lower limits
                     value_list.append(None)
                     raise Exception()
-                elif ('2' in n or  n =='!ctkentry') and value < 20:
+                elif ('2' in n or  n =='!ctkentry') and value < 20: #currne to LNAs must bi higher then 20mA
                     value_list.append(None)
                     raise Exception()
-                elif '7' in n and value < 0:
+                elif '7' in n and value < 0:    #deviation from antenna azimuth must be positive
                     value_list.append(None)
                     raise Exception()
-                elif '8' in n and value < 0:
+                elif '8' in n and value < 0:    #lower value of phantom voltage must be bigger then 0 V
                     value_list.append(None)
                     raise Exception()
-                elif '9' in n and (value < value_list[-1]) or ('9' in n and value < 0):
+                elif '9' in n and (value < value_list[-1]) or ('9' in n and value < 0): #upper value of phantom voltage limit must be higher than lowwer value
                     value_list.append(None)
                     raise Exception()
                 
@@ -871,8 +870,8 @@ def set_tresholds(app_set_range):
                 app_set_range.children[n].configure(text_color = "red")
                 wrong_entry.append(True)
                 print("chyba")
-   
-    try:
+   #write down changes in settings
+    try:    
         with open("config.txt", "r", encoding = "utf-8") as config:
             content = config.readlines()
             config.close()
@@ -901,71 +900,77 @@ def set_tresholds(app_set_range):
         config.writelines(content)
         config.close()
     
-    if True in wrong_entry:
+    if True in wrong_entry: #if there is not allowed value then pop up info dialog
         msg.CTkMessagebox(title="Error", message="Invalid value!")
     else:
-        error_state = q_state.get()
-        error_state[0] = evaluate_state("IA", float(cur_A_TK.get()))
-        error_state[1] = evaluate_state("IB", float(cur_B_TK.get()))
-        error_state[2] = evaluate_state("U", float(fant_volt_TK.get()))
-        error_state[3] = evaluate_state("TA", float(temp_A_TK.get()))
-        error_state[4] = evaluate_state("TB", float(temp_B_TK.get()))
-        error_state[5] = evaluate_state("C", float(orientation_TK.get()[:-2]))
-        q_state.put(error_state)
-        q_state.task_done()
+        if ser_com: #there are diag. data then check if they are in newly set ranges 
+            error_state = q_state.get()
+            error_state[0] = evaluate_state("IA", float(cur_A_TK.get()))
+            error_state[1] = evaluate_state("IB", float(cur_B_TK.get()))
+            error_state[2] = evaluate_state("U", float(fant_volt_TK.get()))
+            error_state[3] = evaluate_state("TA", float(temp_A_TK.get()))
+            error_state[4] = evaluate_state("TB", float(temp_B_TK.get()))
+            error_state[5] = evaluate_state("C", float(orientation_TK.get()[:-2]))
+            q_state.put(error_state)
+            q_state.task_done()
 
+            if True in error_state:
+                state.set("Warning!")
+                entry_11.configure(text_color = "red")
+            else:
+                state.set("Normal state")
+                entry_11.configure(text_color = "green")
+            
+            if error_state[0]:
+                entry_5.configure(text_color = "red")
 
-        if True in error_state:
-            state.set("Warning!")
-            entry_11.configure(text_color = "red")
-        else:
-            state.set("Normal state")
-            entry_11.configure(text_color = "green")
-        
-        if error_state[0]:
-            entry_5.configure(text_color = "red")
+            elif entry_5.cget("text_color") == "red":
+                entry_5.configure(text_color = "black")
 
-        elif entry_5.cget("text_color") == "red":
-            entry_5.configure(text_color = "black")
+            if error_state[1]:
+                entry_8.configure(text_color = "red")  
 
-        if error_state[1]:
-            entry_8.configure(text_color = "red")  
+            elif entry_8.cget("text_color") == "red":
+                entry_8.configure(text_color = "black") 
 
-        elif entry_8.cget("text_color") == "red":
-            entry_8.configure(text_color = "black") 
+            if error_state[2]:
+                entry_4.configure(text_color = "red") 
 
-        if error_state[2]:
-            entry_4.configure(text_color = "red") 
+            elif entry_4.cget("text_color") == "red":
+                entry_4.configure(text_color = "black") 
 
-        elif entry_4.cget("text_color") == "red":
-            entry_4.configure(text_color = "black") 
+            if error_state[3]:
+                entry_6.configure(text_color = "red")
 
-        if error_state[3]:
-            entry_6.configure(text_color = "red")
+            elif entry_6.cget("text_color") == "red":
+                entry_6.configure(text_color = "black")
 
-        elif entry_6.cget("text_color") == "red":
-            entry_6.configure(text_color = "black")
+            if error_state[4]:
+                entry_9.configure(text_color = "red")
 
-        if error_state[4]:
-            entry_9.configure(text_color = "red")
+            elif entry_9.cget("text_color") == "red":
+                entry_9.configure(text_color = "black")
 
-        elif entry_9.cget("text_color") == "red":
-            entry_9.configure(text_color = "black")
+            if error_state[5]:
+                entry_7.configure(text_color = "red") 
 
-        if error_state[5]:
-            entry_7.configure(text_color = "red") 
-
-        elif entry_7.cget("text_color") == "red":
-            entry_7.configure(text_color = "black") 
-        
+            elif entry_7.cget("text_color") == "red":
+                entry_7.configure(text_color = "black") 
+            
         close_settings(app_set_range)
 
+
 def close_settings(app_set_range):
-    btn_3.configure(state = "normal")
-    app_set_range.destroy()
+    """Called on settings window closing. Enables clickability of app settings button.
+    """
+    btn_3.configure(state = "normal")   #after closing the setting window, enable app settings button to be clicked
+    app_set_range.destroy() #close settings window
+
 
 def app_info():
+    """Open github readme in the browser."""
     webbrowser.open('https://github.com/vaclav-kubes/Antenna_switch_control_SW/blob/main/README.md')
+
 
 cstk.set_appearance_mode("System")
 app = cstk.CTk()    #creating the main window of the app

@@ -540,22 +540,31 @@ def get_AZ_EZ(select, data):
 
 
 def auto_select_ant():
-    """Auxiliary function to decide whitch antenna should be switched on according to tracking data."""
+    """Auxiliary function to decide whitch antenna should be switched on according to tracking data.
+        
+        Returns:
+            int: number corresponding to selected antenna"""
     try:
         ant_orientation = float(orientation_manual_TK.get()[:-2])
         az = float(azimut_TK.get()[:-1])
+        el = float(elevation_TK.get()[:-1])
         #360° is divided to 4 quadrants according to antenna orientation
         #according to currnet tracking data the antenna is selected
         ant = 1
-        if az >= divmod(ant_orientation - 45, 360)[1] and az <= divmod(ant_orientation + 45, 360)[1]:     
-            ant = 1
-        elif az >= divmod(ant_orientation + 45, 360)[1] and az <= divmod(ant_orientation + 135, 360)[1]:
-            ant = 2
-        elif az >= divmod(ant_orientation + 135, 360)[1] and az <= divmod(ant_orientation + 225, 360)[1]:
-            ant = 3
-        elif az >= divmod(ant_orientation + 225, 360)[1] and az <= divmod(ant_orientation + 315, 360)[1]:
-            ant = 4
-        return ant
+        if el < 70 and el > 0:
+            if az >= divmod(ant_orientation - 45, 360)[1] and az <= divmod(ant_orientation + 45, 360)[1]:     
+                ant = 1
+            elif az >= divmod(ant_orientation + 45, 360)[1] and az <= divmod(ant_orientation + 135, 360)[1]:
+                ant = 2
+            elif az >= divmod(ant_orientation + 135, 360)[1] and az <= divmod(ant_orientation + 225, 360)[1]:
+                ant = 3
+            elif az >= divmod(ant_orientation + 225, 360)[1] and az <= divmod(ant_orientation + 315, 360)[1]:
+                ant = 4
+            return ant
+        elif el < 0:
+            return 0
+        else:
+            return 5
     except:
         return 1
 
@@ -752,6 +761,8 @@ def create_new_window():
         min_u_fant.set("7")
 
     app_set_range = cstk.CTkToplevel(app)   #create new window
+    app_set_range.geometry("500x700")
+    app_set_range.minsize(width = 500, height = 700)
     app_set_range.title("Set error tresholds")
     app_set_range.focus()
 
@@ -976,6 +987,7 @@ cstk.set_appearance_mode("System")
 app = cstk.CTk()    #creating the main window of the app
 app.geometry("630x590")
 app.minsize(width = 630, height = 590)
+app.iconbitmap(True, "icon.ico")
 app.title("Antenna switch controller")
 
 app.columnconfigure(0, weight=1)
@@ -1130,7 +1142,7 @@ fr_sat_pos.columnconfigure(0,weight = 1)
 fr_sat_pos.columnconfigure(1,weight = 1)
 label_2 = cstk.CTkLabel(fr_sat_pos, text = "Satellite position", font = ("Cambria", 15.5, "italic"), fg_color = "#a0a3a8", corner_radius = 3, width=200)
 label_2.grid(column = 0, row = 0, columnspan = 2, sticky = "EW")#
-label_3 = cstk.CTkLabel(fr_sat_pos, text = "Azimut:", font = ("Cambria", 14))
+label_3 = cstk.CTkLabel(fr_sat_pos, text = "Azimuth:", font = ("Cambria", 14))
 label_3.grid(column = 0, row = 1, pady = 5, padx = 5, sticky = "E")
 entry_1 = cstk.CTkEntry(fr_sat_pos, font = ("Cambria", 14), width = 80, state = "disabled", textvariable = azimut_TK)
 entry_1.grid(column = 1, row = 1, padx = 2, sticky = "W")
@@ -1156,8 +1168,8 @@ label_8 = cstk.CTkLabel(fr_status, text = "Phantom voltage [V]:", font = ("Cambr
 label_8.grid(column = 0, row = 1, pady = 5, padx = 5, sticky = "E")
 entry_4 = cstk.CTkEntry(fr_status, font = ("Cambria", 14), state = "disabled", width = 70, textvariable = fant_volt_TK)
 entry_4.grid(column = 1, row = 1, columnspan = 2, padx = 2, sticky = "WE")
-label_9 = cstk.CTkLabel(fr_status, text = "Currnet to LNAs [mA]:", font = ("Cambria", 14))
-label_9.grid(column = 0, row = 2, pady = 5, padx = 5, sticky = "WE")
+label_9 = cstk.CTkLabel(fr_status, text = "Current to LNAs [mA]:", font = ("Cambria", 14))
+label_9.grid(column = 0, row = 2, pady = 5, padx = 5, sticky = "E")
 entry_5 = cstk.CTkEntry(fr_status, font = ("Cambria", 14), state = "disabled", width = 35, textvariable = cur_A_TK)
 entry_5.grid(column = 1, row = 2, padx = 2, sticky = "WE")
 entry_8 = cstk.CTkEntry(fr_status, font = ("Cambria", 14), state = "disabled", width = 35, textvariable = cur_B_TK)
@@ -1206,14 +1218,14 @@ fr_settings.grid(column = 1, row = 2, padx = 20, sticky = "WE")
 fr_settings.grid_propagate(False)
 fr_settings.columnconfigure(0,weight = 1)
 fr_settings.columnconfigure(1,weight = 1)
-btn_1 = cstk.CTkButton(fr_settings, corner_radius = 3, text = "Manula ant. \n orienation set.", font = ("Cambria", 14), command = ant_orientation_set_m)
+btn_1 = cstk.CTkButton(fr_settings, corner_radius = 3, text = "Manual ant. \n orientation set.", font = ("Cambria", 14), command = ant_orientation_set_m)
 btn_1.grid(column = 0, row = 0, sticky = "NWES", padx = 5, pady = 10)
-btn_2 = cstk.CTkButton(fr_settings, corner_radius = 3, text = "Set current \n ant. orienation", font = ("Cambria", 14), command = ant_orientation_set_a)
+btn_2 = cstk.CTkButton(fr_settings, corner_radius = 3, text = "Set current \n ant. orientation", font = ("Cambria", 14), command = ant_orientation_set_a)
 btn_2.grid(column = 1, row = 0, sticky = "NWES", padx = 5, pady = 10)
 btn_3 = cstk.CTkButton(fr_settings, corner_radius = 3, text = "App settings", font = ("Cambria", 14), command = create_new_window)
-btn_3.grid(column = 0, columnspan = 2, row = 3, sticky = "NWES", padx = 35, pady = 25)
+btn_3.grid(column = 0, columnspan = 2, row = 3, sticky = "NWES", padx = 45, pady = 25)
 btn_4 = cstk.CTkButton(fr_settings, corner_radius = 3, text = "App info", font = ("Cambria", 14), command = app_info)
-btn_4.grid(column = 0, columnspan = 2, row = 4, sticky = "NWES", padx = 35)
+btn_4.grid(column = 0, columnspan = 2, row = 4, sticky = "NWES", padx = 45)
 label_14 = cstk.CTkLabel(fr_settings,  font = ("Cambria", 14), text = "Serial port:") 
 label_14.grid(column = 0, columnspan =2, row = 1, sticky = "S", pady = 5)
 com_menu = cstk.CTkOptionMenu(fr_settings, font = ("Cambria", 14), values = list_com, command = com_select, width = 30, anchor = "center", variable = com_TK)

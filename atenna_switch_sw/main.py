@@ -23,7 +23,7 @@ def log_error():
             file.write(t + ',' + cur_A_TK.get() + ',' + cur_B_TK.get() + ',' + temp_A_TK.get() + ',' + temp_B_TK.get() + ',' + fant_volt_TK.get() + ',' + orientation_TK.get() + ','+ ant_TK.get() + '\n')
     except: #if the file doesnt exist then create new and append the heather and  diag. data
       with open("error_logs.csv", "a", encoding = "utf-8") as file:
-            file.write("Time,Curr. to A, Curr. to B,Temp. of A,Temp. og B,Voltage,Ant. azimuth,Switched ant.\n")
+            file.write("Time,Curr. to A, Curr. to B,Temp. of A,Temp. of B,Voltage,Ant. azimuth,Switched ant.\n")
             file.write(t + ',' + cur_A_TK.get() + ',' + cur_B_TK.get() + ',' + temp_A_TK.get() + ',' + temp_B_TK.get() + ',' + fant_volt_TK.get() + ',' + orientation_TK.get() + ','+ ant_TK.get() + '\n')
               
 
@@ -147,7 +147,7 @@ def read_U_I():
     if True in error_state: #if there is an error in list of error states
         state.set("Warning!")   #then warning is diplayed
         entry_11.configure(text_color = "red")
-        log_error() #error is loggoed to csv file
+        log_error() #error is logged to csv file
     else:
         state.set("Normal state") #else normal state is displayed
         entry_11.configure(text_color = "green")
@@ -195,6 +195,7 @@ def read_temp():
     q_state.task_done()
 
     if True in error_state:
+        log_error()
         state.set("Warning!")
         entry_11.configure(text_color = "red")
     else:
@@ -237,6 +238,7 @@ def read_orient():
     q_state.task_done()
 
     if True in error_state:
+        log_error()
         state.set("Warning!")
         entry_11.configure(text_color = "red")
     else:
@@ -270,7 +272,7 @@ def update_current_voltage():
         else:
             switch_com_TK.set("Switch: Disconnected")
     
-    except queue.Empty:
+    except:
         pass    #if queue is empty then do nothing
     
     app.after(delay_read_UI * 1000 + 3500, update_current_voltage)  #this fun is called every given time
@@ -290,7 +292,7 @@ def update_temp():
                 switch_com_TK.set("Switch: Connected")
         else:
             switch_com_TK.set("Switch: Disconnected")
-    except queue.Empty:
+    except:
         pass
 
     app.after(delay_read_T * 1000 + 3000, update_temp)
@@ -309,7 +311,7 @@ def update_orintation():
         else:
             switch_com_TK.set("Switch: Disconnected")
     
-    except queue.Empty:
+    except:
         pass
 
     app.after(delay_read_C * 1000 + 3000, update_orintation)
@@ -399,6 +401,17 @@ def update_data_from_switch():
         switch_com_TK.set("Switch: Disconnected")
 
 
+def switch_set_off():
+    """To switch off all anntennas and current to LNAs."""
+    checkbtn_1.configure(state = "disabled")
+    checkbtn_2.configure(state = "disabled")
+    checkbtn_3.configure(state = "disabled")
+    checkbtn_4.configure(state = "disabled")
+    checkbtn_5.configure(state = "disabled")
+    ant_TK.set('0')
+    switch_ant()
+
+
 def auto_on():
     """Auxiliary function to disable checkbuttons if auto switching is on."""
     checkbtn_1.configure(state = "disabled")
@@ -407,6 +420,7 @@ def auto_on():
     checkbtn_4.configure(state = "disabled")
     checkbtn_5.configure(state = "disabled") 
     ant_TK.set(str(auto_select_ant()))
+    switch_ant()
 
 
 def manual_on():
@@ -471,7 +485,7 @@ def update_data_from_orbitron():
         elevation_TK.set(el)
         if orbitron_conn_TK.get() == "Orbitron: No data":
             orbitron_conn_TK.set("Orbitron: Connected")
-        if not auto_switch.get():
+        if auto_switch.get() == 1:
             ant_TK.set(str(auto_select_ant()))
             switch_ant()    #switch the antenna
     else:
@@ -550,7 +564,7 @@ def auto_select_ant():
         el = float(elevation_TK.get()[:-1])
         #360° is divided to 4 quadrants according to antenna orientation
         #according to currnet tracking data the antenna is selected
-        ant = 1
+        ant = 0
         if el < 70 and el > 0:
             if az >= divmod(ant_orientation - 45, 360)[1] and az <= divmod(ant_orientation + 45, 360)[1]:     
                 ant = 1
@@ -566,7 +580,7 @@ def auto_select_ant():
         else:
             return 5
     except:
-        return 1
+        return 0
 
 
 def ant_orientation_set_a():
@@ -676,8 +690,12 @@ def com_select(choice):
             choice (str): selected COM port from option menu
     """
     global ser_com
-    if not com_menu.cget("values"):
-        com_menu.configure(values = available_com())
+    if not com_menu.cget("values") or '' in com_menu.cget("values") or "??" in com_menu.cget("values"):
+        ports = available_com()
+        if ports:
+            com_menu.configure(values = ports)
+        else:
+            com_menu.configure(values = [""])
     if ping(choice):    #if MCU is responding on given COM port
         try:
             with open("config.txt", "r", encoding = "utf-8") as config: #save the selected COM port to config file
@@ -765,6 +783,7 @@ def create_new_window():
     app_set_range.minsize(width = 500, height = 700)
     app_set_range.title("Set error tresholds")
     app_set_range.focus()
+    #app_set_range.iconbitmap(bitmap = "icon.ico")
 
     #pack the window with labels and entrys
     L_title = cstk.CTkLabel(app_set_range, text = "Settings", font = ("Cambria", 17, "bold"), anchor = "center")
@@ -987,7 +1006,7 @@ cstk.set_appearance_mode("System")
 app = cstk.CTk()    #creating the main window of the app
 app.geometry("630x590")
 app.minsize(width = 630, height = 590)
-app.iconbitmap(True, "icon.ico")
+app.iconbitmap(True, default = "icon.ico")
 app.title("Antenna switch controller")
 
 app.columnconfigure(0, weight=1)
@@ -998,7 +1017,7 @@ app.rowconfigure(2, weight=1)
 app.rowconfigure(3, weight=1)
 
 #declaring the TKinter variables for widgets
-auto_switch = cstk.BooleanVar()
+auto_switch = cstk.IntVar(value = 1)
 ant1_on = cstk.BooleanVar()
 ant2_on = cstk.BooleanVar()
 ant3_on = cstk.BooleanVar()
@@ -1029,6 +1048,7 @@ max_az_dev = cstk.StringVar()
 B_connected = cstk.BooleanVar()
 max_u_fant = cstk.StringVar()
 min_u_fant = cstk.StringVar()
+#switch_off = cstk.BooleanVar()
 
 #declaring variables
 list_com = []
@@ -1070,7 +1090,7 @@ except:
 
 
 
-try: #try to open configuration file and retrieve tha config. data: ant. orintation, COM port, limit values for error warning
+try: #try to open configuration file and retrieve the config. data: ant. orintation, COM port, limit values for error warning
     config = open("config.txt", "r", encoding = "utf-8")
     config_or = config.readline()
     orientation_manual_TK.set(config_or)
@@ -1082,8 +1102,8 @@ try: #try to open configuration file and retrieve tha config. data: ant. orintat
     max_temp_n_B.set(config.readline().strip("\n"))
     max_temp_p_B.set(config.readline().strip("\n"))
     max_az_dev.set(config.readline().strip("\n"))
-    max_u_fant.set(config.readline().strip("\n"))
     min_u_fant.set(config.readline().strip("\n"))
+    max_u_fant.set(config.readline().strip("\n"))
     B_connected.set(bool(float(config.readline().strip("\n")+'0')))
     config.close()
     
@@ -1197,10 +1217,12 @@ fr_ant_ctrl.columnconfigure(0,weight = 1)
 fr_ant_ctrl.columnconfigure(1,weight = 1)
 label_7 = cstk.CTkLabel(fr_ant_ctrl, text = "Antenna switch", font = ("Cambria", 15.5, "italic"), fg_color = "#a0a3a8", corner_radius = 3)
 label_7.grid(column = 0, row = 0, columnspan = 2, sticky = "EW") 
-auto_radbutton = cstk.CTkRadioButton(fr_ant_ctrl, text = "Auto", variable = auto_switch, value = False, font = ("Cambria", 14), border_width_unchecked = 2, border_width_checked = 7, command = auto_on)
+auto_radbutton = cstk.CTkRadioButton(fr_ant_ctrl, text = "Auto", variable = auto_switch, value = 1, font = ("Cambria", 14), border_width_unchecked = 2, border_width_checked = 7, command = auto_on)
 auto_radbutton.grid(column = 0, row = 1, pady = 5, padx = 3)
-manual_radbutton = cstk.CTkRadioButton(fr_ant_ctrl, text = "Manual:", variable = auto_switch, value = True, font = ("Cambria", 14), border_width_unchecked = 2, border_width_checked = 7, command = manual_on)
+manual_radbutton = cstk.CTkRadioButton(fr_ant_ctrl, text = "Manual:", variable = auto_switch, value = 2, font = ("Cambria", 14), border_width_unchecked = 2, border_width_checked = 7, command = manual_on)
 manual_radbutton.grid(column = 0, row = 2, pady = 5, padx = 3)
+off_radbutton = cstk.CTkRadioButton(fr_ant_ctrl, text = "Off", variable = auto_switch, value = 3, font = ("Cambria", 14), border_width_unchecked = 2, border_width_checked = 7, command = switch_set_off)
+off_radbutton.grid(column = 1, row = 1, pady = 5, padx = 3)
 checkbtn_1 = cstk.CTkCheckBox(fr_ant_ctrl, text = "Ant. 1", variable = ant1_on, onvalue = True, offvalue = False, font = ("Cambria", 14), border_width = 2, state = "disabled", command = checkbtn_fun)
 checkbtn_1.grid(column = 1, row = 3, pady = 3)
 checkbtn_2 = cstk.CTkCheckBox(fr_ant_ctrl, text = "Ant. 2", variable = ant2_on, onvalue = True, offvalue = False, font = ("Cambria", 14), border_width = 2, state = "disabled", command = checkbtn_fun)

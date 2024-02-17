@@ -19,6 +19,8 @@ Serial communication parameters are the following:
 
 To connect to antenna switch for the first time, you have to connect the inside unit with USB/Serial converter to your PC and then start the *Antenna switch controller* app. After that, you have to choose the COM port which corresponds to the connected inside unit with USB/Serial converter. After clicking on selected COM port from offered list of COM ports, serial connection will be established and if no problem with that will occur, the COM port will be saved into `config.txt` file, so next time connection will be established automatically. 
 
+![screenshot of com select](/figs/ser_conn_COM_select.jpg)
+
 To connect to antenna switch after first time setting, it will try to establish serial communication automatically if the inside unit is connected to PC before *Antenna switch controller* app start otherwise if internal unit is connected after app start, the COM port must be selected manually to establish connection.
 
 To indicate if serial connection is fine, there is a status footer. If there is some problem with establishing the connection or received data,  `Switch: Disconnected` message will be displayed in the footer. 
@@ -28,6 +30,8 @@ When the connection is established, all diagnostic data are requested from the a
 ## Connection to Orbitron satellite tracking software
 Tracking data from the Orbitron are handovered by DDE server. *Antenna switch controller* app will connect to the DDE server automatically. To start tracking data transfer there must be in the window `Rotor/Radio` of Orbitron, driver started. *Antenna switch controller* app  can be used as the driver, or any other driver can be used.  After successful connection and data transfer, azimuth and elevation of tracked satellite is displayed in corresponding boxes.
 
+![screenshot of orbitron conection](/figs/orbitron_conn.jpg)
+
 To indicate if connection to Orbitron is fine, there is a status footer. If there is some problem with transferred data from Orbitron or driver is not turned on,  `Orbitron: No data` message will be displayed in the footer. If Orbitron application is not running, then `Orbitron: Disconnected` message will be displayed. Otherwise, `Orbitron: Connected` label will be shown.
 
 ## Setting of absolute space orientation of antenna
@@ -35,15 +39,23 @@ At first start of *Antenna switch controller* app  orientation of switched anten
 
 Absolute space orientation in this case means the azimuth of the centre of antenna one main lobe.
 
+![ant orientation](/figs/ant_or_fig.jpg)
+
 Orientation can be set in two ways:
 
  - **Manual entry:**: after clicking on `Manual ant. orientation set` button, entry dialog window will pop up and after filling up and clicking on `Ok` button, the azimuth is set, and it should appear in appropriate box. Note that only positive numbers in the range from 0 ° to 360 ° will be accepted.
+
+![screenshot of manual antenna orinetation setting](/figs/ant_or_M_set.jpg)
+   
  - **Auto measure entry:** after clicking on `Set current ant. orinetation` button, currently displayed value of measured antenna one azimuth will be set. If there is no data, then an info message will pop up.
 
 Entered value is saved to `config.txt` file, so after initial setting there is no need for repeated entering.
 
 ## App settings - error thresholds
 User can set error thresholds for received data. It can be done by clicking on `App settings` button. In new window, there can be set new ranges of error states for each diagnostic information. Default values are in the picture below:
+
+![screenshot of app settings](/figs/app_settings.jpg)
+
 If values are set correctly (upper value if higher than lower value...) they are saved to `config.txt` file, otherwise default values are used. 
 When the value of one or more diagnostic data are in error range. `Warning!` message will occur in the lowest box of *Status info* frame and invalid values will be highlighted by red colour and values will be logged into `error_log.csv` file.
 

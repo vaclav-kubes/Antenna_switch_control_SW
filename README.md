@@ -34,6 +34,7 @@ Tracking data from the Orbitron are handovered by DDE server. *Antenna switch co
 
 To indicate if connection to Orbitron is fine, there is a status footer. If there is some problem with transferred data from Orbitron or driver is not turned on,  `Orbitron: No data` message will be displayed in the footer. If Orbitron application is not running, then `Orbitron: Disconnected` message will be displayed. Otherwise, `Orbitron: Connected` label will be shown.
 
+To add *Antenna switch controller* app as "driver" to Orbitron, `antenna_switch_ctrl.exe` is copied into your Orbitron directory and the `Setup.cfg` file in the [Drivers] directory is edited to include `antenna_switch_ctrl.exe` as a driver.
 ## Setting of absolute space orientation of antenna
 At first start of *Antenna switch controller* app  orientation of switched antennas must be set. If not, then antennas will not be switched.
 

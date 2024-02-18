@@ -66,5 +66,9 @@ When **Auto mode** is chosen, antennas are switched according to tracking data f
 When **Manual mode** is chosen, radio buttons are enabled and user can set which antenna(s) should be switched on. The limit of number of switched on antennas is three.
 All antennas can be switched off by clicking on **Off** check button.
 Antennas in use are displayed in the lowest box of *Satellite position* frame.
+
 ## How to solve problems with *Antenna switch controller* app
 The easiest solution is to close the app and start it again.
+
+## Notes
+- `config.txt` and `error_log.csv` are saved to the same file where `antenna_switch_ctrl.exe` is stored.

@@ -72,3 +72,4 @@ The easiest solution is to close the app and start it again.
 
 ## Notes
 - `config.txt` and `error_log.csv` are saved to the same file where `antenna_switch_ctrl.exe` is stored.
+- Executable `antenna_switch_ctrl.exe` in antenna_switch_sw folder was compiled on Windows 10, x64.

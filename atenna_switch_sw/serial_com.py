@@ -43,9 +43,9 @@ def serial_start(com):
     """
     #serial comm. settings are: baudrate = 9600, no parity, 8 bit, one stopbit, reading timeout 2 sec
     try:
-        ser = s.Serial(port = com, baudrate = 9600, parity = s.PARITY_NONE, bytesize = s.EIGHTBITS, stopbits = 1, timeout = 2, dsrdtr = True)
+        ser = s.Serial(port = com, baudrate = 9600, parity = s.PARITY_NONE, bytesize = s.EIGHTBITS, stopbits = 1, timeout = 3, dsrdtr = True)
         ser.dtr = False #stop reset after serial comm. initialization 
-        time.sleep(0.1)
+        time.sleep(0.05)
         return ser #return serial class insatnce of created ser. comm.
     except:
         return False    #if there was problem with estabilishing connection. then return false
@@ -61,7 +61,7 @@ def serial_write(ser, data):
     try:
         ser.write(bytes(data, "ascii")) #string must be converted to bytes and then are sent to ser. line
         ser.flush()
-        time.sleep(0.07)
+        time.sleep(0.09)
         return True
     except:
         return False

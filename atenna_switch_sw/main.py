@@ -336,7 +336,7 @@ def update_data_from_switch():
         temp_B_TK.set("{:.1f}".format(data[3]))
         fant_volt_TK.set("{:.1f}".format(data[4]))
         orientation_TK.set("{:.1f}".format(data[5]) + " °")
-        ant_TK.set("{:n}".format(data[6]))  #get the currnetly switched on anntena 
+        ant_TK.set("{:n}".format(data[6]))  #get the currently switched on anntena 
         ant_old = "{:n}".format(data[6])
 
         switch_ant()    #if there is need then switch the antenna
@@ -690,12 +690,17 @@ def com_select(choice):
             choice (str): selected COM port from option menu
     """
     global ser_com
+    try:
+        ser_com.close()
+    except:
+        pass
+
     if not com_menu.cget("values") or '' in com_menu.cget("values") or "??" in com_menu.cget("values"):
         ports = available_com()
         if ports:
             com_menu.configure(values = ports)
         else:
-            com_menu.configure(values = [""])
+            com_menu.configure(values = ["??"])
     if ping(choice):    #if MCU is responding on given COM port
         try:
             with open("config.txt", "r", encoding = "utf-8") as config: #save the selected COM port to config file
@@ -737,7 +742,10 @@ def com_select(choice):
         
             if ser_com:
                 switch_com_TK.set("Switch: Connected")   
-                threading.Thread(target = update_data_from_switch, daemon = True).start()   #request all diag. data from switch
+                t = threading.Timer(function = update_data_from_switch, interval = 0.7)
+                t.daemon = True
+                t.start()  
+                #threading.Thread(target = update_data_from_switch, daemon = True).start()   #request all diag. data from switch
         except:
             try:
                 with open("config.txt", "w", encoding = "utf-8") as config: #if there is no config file, then create new one
@@ -1006,7 +1014,10 @@ cstk.set_appearance_mode("System")
 app = cstk.CTk()    #creating the main window of the app
 app.geometry("630x590")
 app.minsize(width = 630, height = 590)
-app.iconbitmap(True, default = "icon.ico")
+try:
+    app.iconbitmap(True, default = "icon.ico")
+except:
+    pass
 app.title("Antenna switch controller")
 
 app.columnconfigure(0, weight=1)
@@ -1054,7 +1065,7 @@ min_u_fant = cstk.StringVar()
 list_com = []
 config_com = ""
 ant_old = 0
-delay_read_UI = 5#30 #time for requesting new diagnostical data in sec
+delay_read_UI = 10#30 #time for requesting new diagnostical data in sec
 delay_read_T = 300
 delay_read_C = 900
 dde_con = False
@@ -1127,8 +1138,11 @@ get_com = available_com()   #get available COM ports
 if not get_com and config_com: #if list of COM ports is empty and there is COM port in config file
     list_com.append(config_com[:-1]) #append COM port from config file to option menu 
     com_TK.set(config_com[:-1])
-elif get_com:   #if there are COM ports available then put them to option menu
-    list_com = get_com
+elif get_com and config_com:   #if there are COM ports available then put them to option menu
+    list_com.append(config_com[:-1]) 
+    for one_com in get_com:
+        if one_com != config_com[:-1]:
+            list_com.append(one_com)
     com_TK.set(list_com[0])
 else:
     com_TK.set("??")
@@ -1136,7 +1150,7 @@ else:
 if config_com: #if there is COM port in config file 
     if ping(config_com[:-1]):   #try to ping to device on that COM port
         switch_com_TK.set("Switch: Connected") #if ping is succesfull indicate that switch is connected
-        ser_com = serial_start(com_TK.get())
+        ser_com = serial_start(config_com[:-1])
         first_data = True   #first requesting data from switch is allowed
     else:
         switch_com_TK.set("Switch: Disconnected")
@@ -1263,10 +1277,13 @@ fr_conn2.grid(column = 1, row = 4, sticky = "WES")
 label_13 = cstk.CTkLabel(fr_conn2, textvariable = switch_com_TK, font = ("Cambria", 12, "italic"))
 label_13.pack(anchor = 's', side = "bottom")
 
+if first_data: #if serial comm. was succesfully estabilished after app start then request all diag. data from switch 200 ms after app start 
+    app.after(1000, threading.Thread(target = update_data_from_switch, daemon = True).start)
+
 if dde_con: #if Orbitron is connected (the app is opened)
-    app.after(1500, update_data_from_orbitron) #then after 1.5 sec read the data from Orbitron
+    app.after(500, update_data_from_orbitron) #then after 1.5 sec read the data from Orbitron
 else:
-    app.after(2500, check_conn_orbitron)    #else each 2.5 sec check if Orbitron app is opened
+    app.after(2571, check_conn_orbitron)    #else each 2.5 sec check if Orbitron app is opened
 
 #each checking interval is opened thread to get data from serial line, thread is necessary because serial readig and writing blocks the main loop
 t1 = threading.Timer(function = read_U_I, interval = delay_read_UI) #start thread after given interval and do given fun
@@ -1285,9 +1302,6 @@ t3.start()
 app.after(delay_read_T * 1000 + 3000, update_temp)  
 app.after(delay_read_UI * 1000 + 3500, update_current_voltage)
 app.after(delay_read_C * 1000 + 3000, update_orintation)
-
-if first_data: #if serial comm. was succesfully estabilished after app start then request all diag. data from switch 200 ms after app start 
-    app.after(200, threading.Thread(target = update_data_from_switch, daemon = True).start)
 
 app.protocol("WM_DELETE_WINDOW", on_closing)    #on closing the app, call given function to end the ser. comm. and dde server 
 app.mainloop() #run the app

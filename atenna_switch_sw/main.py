@@ -48,7 +48,7 @@ def ant_set(antenna):
 
     serial_write(ser_com, "AN"+ antenna.strip())
 
-    if extract_val(serial_read(ser_com)) != antenna:    #if switch respond witch different antenna then there is error
+    if str(int(extract_val(serial_read(ser_com)))) != antenna:    #if switch respond witch different antenna then there is error
         log_error()
 
     q_done.put(True) #writing to ser. line is done

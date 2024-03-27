@@ -46,9 +46,9 @@ def ant_set(antenna):
 
     q_done.put(False) #block other serial writings until writing is done
 
-    serial_write(ser_com, "AN"+ antenna.strip())
+    serial_write(ser_com, "AN"+ antenna.strip().replace(" ", "") + '\n')
 
-    if str(int(extract_val(serial_read(ser_com)))) != antenna:    #if switch respond witch different antenna then there is error
+    if str(int(extract_val(serial_read(ser_com)))) != antenna:    #if switch respond with different antenna then there is error
         log_error()
 
     q_done.put(True) #writing to ser. line is done
@@ -138,7 +138,10 @@ def read_U_I():
     
     error_state = q_state.get() #get list of error states of all values
     error_state[0] = evaluate_state("IA", IA)   #write evaluation of the data to error state list
-    error_state[1] = evaluate_state("IB", IB)
+    if B_connected.get():
+        error_state[1] = evaluate_state("IB", IB)
+    else:
+        error_state[1] = False
     error_state[2] = evaluate_state("U", UF)
     q_state.put(error_state)
     q_state.task_done()
@@ -171,6 +174,8 @@ def read_U_I():
     t = threading.Timer(function = read_U_I, interval = delay_read_UI)  #this function calls itself after given time 
     t.daemon = True
     t.start()
+    
+    
 
 
 def read_temp():
@@ -329,21 +334,32 @@ def update_data_from_switch():
 
         data = extract_val(get_all(ser_com)[1])
         q_done.put(True)
-        
-        cur_A_TK.set("{:.1f}".format(data[0]))
-        cur_B_TK.set("{:.1f}".format(data[1]))
-        temp_A_TK.set("{:.1f}".format(data[2]))
-        temp_B_TK.set("{:.1f}".format(data[3]))
-        fant_volt_TK.set("{:.1f}".format(data[4]))
-        orientation_TK.set("{:.1f}".format(data[5]) + " °")
-        ant_TK.set("{:n}".format(data[6]))  #get the currently switched on anntena 
-        ant_old = "{:n}".format(data[6])
+        try:
+            cur_A_TK.set("{:.1f}".format(data[0]))
+            cur_B_TK.set("{:.1f}".format(data[1]))
+            temp_A_TK.set("{:.1f}".format(data[2]))
+            temp_B_TK.set("{:.1f}".format(data[3]))
+            fant_volt_TK.set("{:.1f}".format(data[4]))
+            orientation_TK.set("{:.1f}".format(data[5]) + " °")
+            ant_TK.set("{:n}".format(data[6]))  #get the currently switched on anntena 
+            ant_old = "{:n}".format(data[6])
+            B_connected.set(bool(data[7]))
+            if not data[7]:
+                entry_8.configure(fg_color= "#dedede")  
+                entry_9.configure(fg_color= "#dedede")
+
+
+        except:
+            pass
 
         switch_ant()    #if there is need then switch the antenna
 
         error_state = q_state.get()
         error_state[0] = evaluate_state("IA", data[0])
-        error_state[1] = evaluate_state("IB", data[1])
+        if not data[7]:
+            error_state[1] = False
+        else:
+            error_state[1] = evaluate_state("IB", data[1])
         error_state[2] = evaluate_state("U", data[4])
         error_state[3] = evaluate_state("TA", data[2])
         error_state[4] = evaluate_state("TB", data[3])
@@ -400,6 +416,45 @@ def update_data_from_switch():
     else:
         switch_com_TK.set("Switch: Disconnected")
 
+
+def B_conn_set():
+    """Gray out the label boxes with diag. data IA and TB if selected tha B unit is not connected if yes then evaluate the data."""
+    if B_connected.get():
+        entry_8.configure(fg_color= "white")  
+        entry_9.configure(fg_color= "white")
+        IB = float(cur_B_TK.get())
+        TB = float(temp_B_TK.get())
+        error_state = q_state.get()
+        error_state[1] = evaluate_state("IB", IB)
+        error_state[4] = evaluate_state("TB", TB)
+        q_state.put(error_state)
+        q_state.task_done()
+        if True in error_state:
+            state.set("Warning!")
+            entry_11.configure(text_color = "red")
+        else:
+            state.set("Normal state")
+            entry_11.configure(text_color = "green")
+        if error_state[1]:
+            entry_8.configure(text_color = "red")  
+
+        elif entry_8.cget("text_color") == "red":
+            entry_8.configure(text_color = "black") 
+        
+        if error_state[4]:
+            entry_9.configure(text_color = "red")
+
+        elif entry_9.cget("text_color") == "red":
+            entry_9.configure(text_color = "black")
+    else:
+        entry_8.configure(fg_color= "#dedede", text_color = "black")  
+        entry_9.configure(fg_color= "#dedede", text_color = "black")
+        error_state = q_state.get()
+        error_state[1] = False
+        error_state[4] = False
+        q_state.put(error_state)
+        q_state.task_done()
+    
 
 def switch_set_off():
     """To switch off all anntennas and current to LNAs."""
@@ -854,7 +909,7 @@ def create_new_window():
     L_set_B_conn = cstk.CTkLabel(app_set_range, text = "B board is connected:", font = ("Cambria", 14, "bold"))
     L_set_B_conn.grid(column = 0, columnspan = 2, row = 19, padx = 50, pady = 2, sticky = "NSEW")
 
-    CH_set_B_conn = cstk.CTkCheckBox(app_set_range, variable = B_connected, onvalue = True, offvalue = False, text = "Yes", font = ("Cambria", 14, "bold"))
+    CH_set_B_conn = cstk.CTkCheckBox(app_set_range, variable = B_connected, onvalue = True, offvalue = False, text = "Yes", font = ("Cambria", 14, "bold"), command = B_conn_set)
     CH_set_B_conn.grid(column = 0, columnspan = 2, row = 20, padx = 50, pady = 2, sticky = "NSEW")
 
     B_set = cstk.CTkButton(app_set_range, text = "Save", font = ("Cambria", 14), command = lambda: set_tresholds(app_set_range))
@@ -907,7 +962,6 @@ def set_tresholds(app_set_range):
             except:
                 app_set_range.children[n].configure(text_color = "red")
                 wrong_entry.append(True)
-                print("chyba")
    #write down changes in settings
     try:    
         with open("config.txt", "r", encoding = "utf-8") as config:
@@ -944,10 +998,14 @@ def set_tresholds(app_set_range):
         if ser_com: #there are diag. data then check if they are in newly set ranges 
             error_state = q_state.get()
             error_state[0] = evaluate_state("IA", float(cur_A_TK.get()))
-            error_state[1] = evaluate_state("IB", float(cur_B_TK.get()))
+            if B_connected.get():
+                error_state[1] = evaluate_state("IB", float(cur_B_TK.get()))
+                error_state[4] = evaluate_state("TB", float(temp_B_TK.get()))
+            else:
+                error_state[1] = False
+                error_state[4] = False
             error_state[2] = evaluate_state("U", float(fant_volt_TK.get()))
             error_state[3] = evaluate_state("TA", float(temp_A_TK.get()))
-            error_state[4] = evaluate_state("TB", float(temp_B_TK.get()))
             error_state[5] = evaluate_state("C", float(orientation_TK.get()[:-2]))
             q_state.put(error_state)
             q_state.task_done()
@@ -1277,7 +1335,7 @@ fr_conn2.grid(column = 1, row = 4, sticky = "WES")
 label_13 = cstk.CTkLabel(fr_conn2, textvariable = switch_com_TK, font = ("Cambria", 12, "italic"))
 label_13.pack(anchor = 's', side = "bottom")
 
-if first_data: #if serial comm. was succesfully estabilished after app start then request all diag. data from switch 200 ms after app start 
+if first_data: #if serial comm. was succesfully estabilished after app start then request all diag. data from switch 1 sec after app start 
     app.after(1000, threading.Thread(target = update_data_from_switch, daemon = True).start)
 
 if dde_con: #if Orbitron is connected (the app is opened)

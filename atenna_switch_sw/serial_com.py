@@ -20,19 +20,26 @@ def ping(com):
             ser.dtr = False #reset after initiation of ser. comm. is turned off
             time.sleep(0.1) #give the MCU some time 
             msg = 0
-            ser.write(bytes('!', "ascii"))  #send '!' to MCU via serial comm. - writing and reading from ser. line is blockng!
+            ser.write(bytes("!!\n", "ascii"))  #send "!!" to MCU via serial comm. - writing and reading from ser. line is blockng!
+            #print(ser.in_waiting)
             ser.flush() #wait unitl everithing was written to ser. line
+            #print(ser.in_waiting)
+            ser.reset_input_buffer()#clean the input buffer !!!does not work for some reason
+            #print(ser.in_waiting)
+            ser.readline()
             msg = ser.read(2)   #read two bytes recieved from ser. line
-            ser.reset_input_buffer()    #clean the input buffer
+            print("RX: ", msg)    
 
     except:     
         return False    #if there is problem (mainly with opening the serial port) return Flase
+    try:
+        if str(msg,"ascii") == "YE":    #if recieved string coressponds to "YE" return True
+            return True
+        else:
+            return False  #else there is probbable error on the line and return False
+    except:
+        return False
     
-    if str(msg,"ascii") == "YE":    #if recieved string coressponds to "YE" return True
-        return True
-    else:
-        return False  #else there is probbable error on the line and return False
-
 def serial_start(com):
     """Opens serial communication at given COM port and returns instantion of serial class.
     
@@ -43,7 +50,7 @@ def serial_start(com):
     """
     #serial comm. settings are: baudrate = 9600, no parity, 8 bit, one stopbit, reading timeout 2 sec
     try:
-        ser = s.Serial(port = com, baudrate = 9600, parity = s.PARITY_NONE, bytesize = s.EIGHTBITS, stopbits = 1, timeout = 3, dsrdtr = True)
+        ser = s.Serial(port = com, baudrate = 9600, parity = s.PARITY_NONE, bytesize = s.EIGHTBITS, stopbits = 1, timeout = 5, dsrdtr = True)
         ser.dtr = False #stop reset after serial comm. initialization 
         time.sleep(0.05)
         return ser #return serial class insatnce of created ser. comm.
@@ -59,9 +66,17 @@ def serial_write(ser, data):
             bool: True if data was written without exceptation otherwise returns False
     """
     try:
+        print("TX: ", bytes(data, "ascii"))
         ser.write(bytes(data, "ascii")) #string must be converted to bytes and then are sent to ser. line
         ser.flush()
+        #ser.reset_input_buffer()
+        #print(ser.readline())
         time.sleep(0.09)
+        
+        #print(ser.in_waiting)
+        
+        #print(ser.in_waiting)
+        #ser.flushInput()
         return True
     except:
         return False
@@ -75,7 +90,12 @@ def serial_read(ser):
             byte/bool: Returns recieved bytes if no exception has occured otherwise returns False
     """
     try:
+        #print(ser.in_waiting)
+        #print(ser.readline())
+        ser.readline()
+        #print(ser.in_waiting)
         msg = ser.readline()    #read bytes from serial input buffer untill "\n"
+        print("RX: ", msg)
         return msg
     except:
         return None
@@ -88,7 +108,7 @@ def get_temp_A(ser):
         Returns:
             tuple: (True/False whether writing to ser. line was succesful, byte - recieved line "TAxx.x\n"/bool - False if there was exception)
     """
-    return (serial_write(ser, "TA"), serial_read(ser))
+    return (serial_write(ser, "TA\n"), serial_read(ser))
 
 def get_temp_B(ser):
     """Request temperature from B board through serial line
@@ -98,7 +118,7 @@ def get_temp_B(ser):
         Returns:
             tuple: (True/False whether writing to ser. line was succesful, byte - recieved line "TBxx.x\n"/bool - False if there was exception)
     """
-    return (serial_write(ser, "TB"), serial_read(ser))
+    return (serial_write(ser, "TB\n"), serial_read(ser))
 
 def get_curr_A(ser):
     """Request measured current to LNAs from A board through serial line
@@ -108,7 +128,7 @@ def get_curr_A(ser):
         Returns:
             tuple: (True/False whether writing to ser. line was succesful, byte - recieved line "IAxxx.x\n"/bool - False if there was exception)
     """
-    return (serial_write(ser, "IA"), serial_read(ser))
+    return (serial_write(ser, "IA\n"), serial_read(ser))
 
 def get_curr_B(ser):
     """Request measured current to LNAs from B board through serial line
@@ -118,7 +138,7 @@ def get_curr_B(ser):
         Returns:
             tuple: (True/False whether writing to ser. line was succesful, byte - recieved line "IBxxx.x\n"/bool - False if there was exception)
     """
-    return (serial_write(ser, "IB"), serial_read(ser))
+    return (serial_write(ser, "IB\n"), serial_read(ser))
 
 def get_compass(ser):
     """Request measured antenna orintation through serial line
@@ -128,7 +148,7 @@ def get_compass(ser):
         Returns:
             tuple: (True/False whether writing to ser. line was succesful, byte - recieved line "ECxxx.x\n"/bool - False if there was exception)
     """
-    return (serial_write(ser, "EC"), serial_read(ser))
+    return (serial_write(ser, "EC\n"), serial_read(ser))
 
 def get_fant_U(ser):
     """Request measured phantom voltage through serial line
@@ -138,7 +158,7 @@ def get_fant_U(ser):
         Returns:
             tuple: (True/False whether writing to ser. line was succesful, byte - recieved line "FUxx.xx\n"/bool - False if there was exception)
     """
-    return (serial_write(ser, "FU"), serial_read(ser))
+    return (serial_write(ser, "FU\n"), serial_read(ser))
 
 def get_ant(ser):
     """Request currently switch on antennas through serial line
@@ -148,7 +168,7 @@ def get_ant(ser):
         Returns:
             tuple: (True/False whether writing to ser. line was succesful, byte - recieved line "ANx...\n"/bool - False if there was exception)
     """
-    return (serial_write(ser, "AN"), serial_read(ser))
+    return (serial_write(ser, "AN\n"), serial_read(ser))
 
 def get_b_pressence(ser):
     """Request B board presence indication through serial line
@@ -158,7 +178,7 @@ def get_b_pressence(ser):
         Returns:
             tuple: (True/False whether writing to ser. line was succesful, byte - recieved line "CBx\n"/bool - False if there was exception)
     """
-    return (serial_write(ser, "CB"), serial_read(ser))
+    return (serial_write(ser, "CB\n"), serial_read(ser))
 
 def get_all(ser):
     """Request all measurements and data through serial line
@@ -168,7 +188,7 @@ def get_all(ser):
         Returns:
             tuple: (True/False whether writing to ser. line was succesful, byte - recieved line "IA,IB,TA,TB,FU,EC,AN,CB\n"/bool - False if there was exception)
     """
-    return (serial_write(ser, "AL"), serial_read(ser))
+    return (serial_write(ser, "AL\n"), serial_read(ser))
 
 def extract_val(data):
     """Auxiliary function to extract values from string recieved from ser. line
@@ -183,8 +203,8 @@ def extract_val(data):
     try:
         if len(data) > 10:  #if there is more values to extract then
             data_r = []
-            for n in str(data, encoding = "ascii")[:-1].split(","): #parse given string at commas an create list
-                data_r.append(float(n)) #for each item in list convert atring to float number and add it to final list of values
+            for n in str(data, encoding = "ascii")[:-1].split(","): #parse given string at commas and create list
+                data_r.append(float(n)) #for each item in list convert string to float number and add it to final list of values
             return data_r   #return list of float
         else:
             return float(str(data, encoding = "ascii")[2:-1]) #if there is just one value to extract then encode bytes to ascii and cut out first two and last characters and return float

@@ -10,6 +10,9 @@ import threading
 import queue
 import datetime
 import webbrowser
+import sys
+import os
+import base64
 
 def log_error():
     """Write down diagnostic data to error_logs CSV file.
@@ -846,7 +849,9 @@ def create_new_window():
     app_set_range.minsize(width = 500, height = 700)
     app_set_range.title("Set error tresholds")
     app_set_range.focus()
-    #app_set_range.iconbitmap(bitmap = "icon.ico")
+    #photo = PhotoImage(file = "icon.ico")
+    #app_set_range.iconphoto(False, photo)
+    #app_set_range.iconbitmap(default = False, bitmap = "icon.ico")
 
     #pack the window with labels and entrys
     L_title = cstk.CTkLabel(app_set_range, text = "Settings", font = ("Cambria", 17, "bold"), anchor = "center")
@@ -1067,15 +1072,27 @@ def app_info():
     """Open github readme in the browser."""
     webbrowser.open('https://github.com/vaclav-kubes/Antenna_switch_control_SW/blob/main/README.md')
 
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 cstk.set_appearance_mode("System")
 app = cstk.CTk()    #creating the main window of the app
 app.geometry("630x590")
 app.minsize(width = 630, height = 590)
+
 try:
-    app.iconbitmap(True, default = "icon.ico")
+    app.iconbitmap(True, resource_path('icon.ico'))
 except:
     pass
+
+
 app.title("Antenna switch controller")
 
 app.columnconfigure(0, weight=1)
@@ -1123,7 +1140,7 @@ min_u_fant = cstk.StringVar()
 list_com = []
 config_com = ""
 ant_old = 0
-delay_read_UI = 10#30 #time for requesting new diagnostical data in sec
+delay_read_UI = 60#30 #time for requesting new diagnostic data in sec
 delay_read_T = 300
 delay_read_C = 900
 dde_con = False

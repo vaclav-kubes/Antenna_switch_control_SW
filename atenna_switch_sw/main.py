@@ -12,7 +12,6 @@ import datetime
 import webbrowser
 import sys
 import os
-import base64
 
 def log_error():
     """Write down diagnostic data to error_logs CSV file.
@@ -50,8 +49,10 @@ def ant_set(antenna):
     q_done.put(False) #block other serial writings until writing is done
 
     serial_write(ser_com, "AN"+ antenna.strip().replace(" ", "") + '\n')
-
-    if str(int(extract_val(serial_read(ser_com)))) != antenna:    #if switch respond with different antenna then there is error
+    try:
+        if str(int(extract_val(serial_read(ser_com)))) != antenna:    #if switch respond with different antenna then there is error
+            log_error()
+    except:
         log_error()
 
     q_done.put(True) #writing to ser. line is done
@@ -1356,7 +1357,7 @@ if first_data: #if serial comm. was succesfully estabilished after app start the
     app.after(1000, threading.Thread(target = update_data_from_switch, daemon = True).start)
 
 if dde_con: #if Orbitron is connected (the app is opened)
-    app.after(500, update_data_from_orbitron) #then after 1.5 sec read the data from Orbitron
+    app.after(500, update_data_from_orbitron) #then after 0.5 sec read the data from Orbitron
 else:
     app.after(2571, check_conn_orbitron)    #else each 2.5 sec check if Orbitron app is opened
 

@@ -1,4 +1,13 @@
+"""
+Control program for five chanell antenna switch with diagnostics.
 
+Version 1.0
+
+Author: Václav Kubeš
+
+"""
+
+#==================== Modules import ====================
 from tkinter import *
 import CTkMessagebox as msg
 import customtkinter as cstk
@@ -13,6 +22,7 @@ import webbrowser
 import sys
 import os
 
+#==================== Functions definitions ====================
 def log_error():
     """Write down diagnostic data to error_logs CSV file.
     """
@@ -179,8 +189,6 @@ def read_U_I():
     t.daemon = True
     t.start()
     
-    
-
 
 def read_temp():
     """Request for current values of temperature of A and B board via ser. line."""
@@ -1073,23 +1081,24 @@ def app_info():
     """Open github readme in the browser."""
     webbrowser.open('https://github.com/vaclav-kubes/Antenna_switch_control_SW/blob/main/README.md')
 
-def resource_path(relative_path):
-    """ Get absolute path to resource, works for dev and for PyInstaller """
+def src_path(rel_path):
+    """Retrieve absolute path to file for dev and for PyInstaller otherwise icon wont load"""
     try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
+        b_path = sys._MEIPASS
+    except:
+        b_path = os.path.abspath(".")
 
-    return os.path.join(base_path, relative_path)
+    return os.path.join(b_path, rel_path)
 
+
+#==================== Creation of Main window ====================
 cstk.set_appearance_mode("System")
 app = cstk.CTk()    #creating the main window of the app
 app.geometry("630x590")
 app.minsize(width = 630, height = 590)
 
 try:
-    app.iconbitmap(True, resource_path('icon.ico'))
+    app.iconbitmap(True, src_path('icon.ico'))
 except:
     pass
 
@@ -1103,6 +1112,7 @@ app.rowconfigure(1, weight=1)
 app.rowconfigure(2, weight=1)
 app.rowconfigure(3, weight=1)
 
+#==================== Declaration of variables ====================
 #declaring the TKinter variables for widgets
 auto_switch = cstk.IntVar(value = 1)
 ant1_on = cstk.BooleanVar()
@@ -1155,6 +1165,7 @@ q_done.put(True)
 q_state = queue.Queue()
 q_state.put([False, False, False, False, False, False])
 
+#==================== Actions at start of app ====================
 #creating the dde client to connect to Orbitron dde server
 s = dde.CreateServer()  #create a DDE client and start conversation
 s.Create("GetData") #GetData client
@@ -1238,6 +1249,7 @@ else:
     first_data = False
 
 
+#==================== Main window widgets ====================
 #place title of the aplication
 label_1 = cstk.CTkLabel(app, text = "Antenna switch controller", font = ("Cambria", 20, "bold"), anchor = "center")
 label_1.grid(column = 0, row = 0, columnspan = 2, sticky = "NSEW")
@@ -1353,6 +1365,7 @@ fr_conn2.grid(column = 1, row = 4, sticky = "WES")
 label_13 = cstk.CTkLabel(fr_conn2, textvariable = switch_com_TK, font = ("Cambria", 12, "italic"))
 label_13.pack(anchor = 's', side = "bottom")
 
+#==================== Starting the timers for data refresh ====================
 if first_data: #if serial comm. was succesfully estabilished after app start then request all diag. data from switch 1 sec after app start 
     app.after(1000, threading.Thread(target = update_data_from_switch, daemon = True).start)
 

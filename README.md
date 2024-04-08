@@ -70,6 +70,11 @@ Antennas in use are displayed in the lowest box of *Satellite position* frame.
 ## How to solve problems with *Antenna switch controller* app
 The easiest solution is to close the app and start it again.
 
-## Notes
+## Notes for program
 - `config.txt` and `error_log.csv` are saved to the same file where `antenna_switch_ctrl.exe` is stored.
 - Executable `antenna_switch_ctrl.exe` in antenna_switch_sw folder was compiled on Windows 10, x64.
+
+## Notes for python source code
+- External libraries not included in standard Python distribution are listed in [requirements.txt](/antenna_switch_sw/requirements.txt)
+  - All of them can be installed by running: `pip install -r requirements.txt`
+- Python 3.12.1 was used

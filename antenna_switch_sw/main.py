@@ -633,14 +633,32 @@ def auto_select_ant():
         #according to currnet tracking data the antenna is selected
         ant = 0
         if el < 70 and el > 0:
-            if az >= divmod(ant_orientation - 45, 360)[1] and az <= divmod(ant_orientation + 45, 360)[1]:     
-                ant = 1
-            elif az >= divmod(ant_orientation + 45, 360)[1] and az <= divmod(ant_orientation + 135, 360)[1]:
-                ant = 2
-            elif az >= divmod(ant_orientation + 135, 360)[1] and az <= divmod(ant_orientation + 225, 360)[1]:
-                ant = 3
-            elif az >= divmod(ant_orientation + 225, 360)[1] and az <= divmod(ant_orientation + 315, 360)[1]:
-                ant = 4
+            if not coupling.get():
+                if az >= divmod(ant_orientation - 45, 360)[1] and az <= divmod(ant_orientation + 45, 360)[1]:     
+                    ant = 1
+                elif az >= divmod(ant_orientation + 45, 360)[1] and az <= divmod(ant_orientation + 135, 360)[1]:
+                    ant = 2
+                elif az >= divmod(ant_orientation + 135, 360)[1] and az <= divmod(ant_orientation + 225, 360)[1]:
+                    ant = 3
+                elif az >= divmod(ant_orientation + 225, 360)[1] and az <= divmod(ant_orientation + 315, 360)[1]:
+                    ant = 4
+            else:
+                if az >= divmod(ant_orientation - 22.5, 360)[1] and az <= divmod(ant_orientation + 22.5, 360)[1]:     
+                    ant = 1
+                elif az >= divmod(ant_orientation + 22.5, 360)[1] and az <= divmod(ant_orientation + 67.5, 360)[1]:
+                    ant = 12
+                elif az >= divmod(ant_orientation + 67.5, 360)[1] and az <= divmod(ant_orientation + 112.5, 360)[1]:
+                    ant = 2
+                elif az >= divmod(ant_orientation + 112.5, 360)[1] and az <= divmod(ant_orientation + 157.5, 360)[1]:
+                    ant = 23
+                elif az >= divmod(ant_orientation + 157.5, 360)[1] and az <= divmod(ant_orientation + 202.5, 360)[1]:
+                    ant = 3
+                elif az >= divmod(ant_orientation + 202.5, 360)[1] and az <= divmod(ant_orientation + 247.5, 360)[1]:
+                    ant = 34
+                elif az >= divmod(ant_orientation + 247.5, 360)[1] and az <= divmod(ant_orientation + 292.5, 360)[1]:
+                    ant = 4
+                elif az >= divmod(ant_orientation + 292.5, 360)[1] and az <= divmod(ant_orientation + 337.5, 360)[1]:
+                    ant = 41
             return ant
         elif el < 0:
             return 0
@@ -1120,6 +1138,7 @@ ant2_on = cstk.BooleanVar()
 ant3_on = cstk.BooleanVar()
 ant4_on = cstk.BooleanVar()
 ant5_on = cstk.BooleanVar()
+coupling = cstk.BooleanVar()
 dde_data = cstk.StringVar()
 azimut_TK = cstk.StringVar()
 elevation_TK = cstk.StringVar()
@@ -1275,7 +1294,9 @@ entry_2.grid(column = 1, row = 2, padx = 2, sticky = "W")
 label_5 = cstk.CTkLabel(fr_sat_pos, text = "Antenna in use:", font = ("Cambria", 14))
 label_5.grid(column = 0, row = 3, columnspan = 2, pady = 10, sticky = "NSEW")
 entry_3 = cstk.CTkEntry(fr_sat_pos, font = ("Cambria", 14), state = "disabled", width = 80, textvariable = ant_TK, justify = "center")
-entry_3.grid(column = 0, row = 4, columnspan = 2, padx = 30, sticky = "NSEW")
+entry_3.grid(column = 0, row = 4, columnspan = 2, padx = 5, sticky = "NSEW")
+checkbtn_6 = cstk.CTkCheckBox(fr_sat_pos, text = "Coupling of two", variable = coupling, onvalue = True, offvalue = False, font = ("Cambria", 14), border_width = 2)
+checkbtn_6.grid(column = 0, row = 5, columnspan = 2, pady = 10, padx = 35,  sticky = "WE")
 
 #create frame for displaying diagnostitcal data from swich
 fr_status = cstk.CTkFrame(app, width = 250, height = 230)

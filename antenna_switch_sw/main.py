@@ -1416,3 +1416,5 @@ app.after(delay_read_C * 1000 + 3000, update_orintation)
 app.protocol("WM_DELETE_WINDOW", on_closing)    #on closing the app, call given function to end the ser. comm. and dde server 
 app.mainloop() #run the app
 
+#to generate EXE:
+#               $pyinstaller --onefile --noconsole --clean --icon='icon.ico' --add-data 'icon.ico;.' --name antenna_switch_control  main.py

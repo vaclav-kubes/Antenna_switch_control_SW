@@ -160,6 +160,7 @@ def read_U_I():
     q_state.put(error_state)
     q_state.task_done()
     
+    #update_current_voltage()
 
     if True in error_state: #if there is an error in list of error states
         state.set("Warning!")   #then warning is diplayed
@@ -169,7 +170,7 @@ def read_U_I():
         state.set("Normal state") #else normal state is displayed
         entry_11.configure(text_color = "green")
 
-    #highlighte error values by turning them red or unhighlighte them if values are ok
+    #highlight error values by turning them red or unhighlight them if values are ok
     if error_state[0]:
         entry_5.configure(text_color = "red")       
     elif entry_5.cget("text_color") == "red":
@@ -184,6 +185,7 @@ def read_U_I():
         entry_4.configure(text_color = "red") 
     elif entry_4.cget("text_color") == "red":
         entry_4.configure(text_color = "black") 
+
 
     t = threading.Timer(function = read_U_I, interval = delay_read_UI)  #this function calls itself after given time 
     t.daemon = True
@@ -660,7 +662,7 @@ def auto_select_ant():
                 elif az >= divmod(ant_orientation + 292.5, 360)[1] and az <= divmod(ant_orientation + 337.5, 360)[1]:
                     ant = 41
             return ant
-        elif el < 0:
+        elif el <= 0:
             return 0
         else:
             return 5
@@ -1241,7 +1243,7 @@ except: #if config file doesnt exist create ne file and write there default valu
 
 get_com = available_com()   #get available COM ports
 
-if not get_com and config_com: #if list of COM ports is empty and there is COM port in config file
+if not (get_com and config_com): #if list of COM ports is empty and there is COM port in config file
     list_com.append(config_com[:-1]) #append COM port from config file to option menu 
     com_TK.set(config_com[:-1])
 elif get_com and config_com:   #if there are COM ports available then put them to option menu

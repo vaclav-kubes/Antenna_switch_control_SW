@@ -21,7 +21,6 @@ import datetime
 import webbrowser
 import sys
 import os
-
 #==================== Functions definitions ====================
 def log_error():
     """Write down diagnostic data to error_logs CSV file.
@@ -51,7 +50,9 @@ def switch_ant():
 
 
 def ant_set(antenna):
-    """Writes the command to switch ant. to ser. line."""
+    """Writes the command to switch ant. to ser. line.
+        arg: (string) antenna
+    """
     while not q_done.get(): #wait until other serial writings are done
         q_done.task_done()
         time.sleep(0.3)
@@ -122,6 +123,7 @@ def evaluate_state(type_of_data, data):
 def on_closing():
     """Auxiliary function which is called after clicking on X"""
     try:
+        ant_set("0")
         ser_com.close() #end ser. comm. properly
         s.Shutdown()    #end dde server properly
         app.destroy()   #close main window and end the app
@@ -160,7 +162,7 @@ def read_U_I():
     q_state.put(error_state)
     q_state.task_done()
     
-    #update_current_voltage()
+    update_current_voltage()
 
     if True in error_state: #if there is an error in list of error states
         state.set("Warning!")   #then warning is diplayed
@@ -221,6 +223,8 @@ def read_temp():
         state.set("Normal state")
         entry_11.configure(text_color = "green")
 
+    update_temp()
+
     if error_state[3]:
         entry_6.configure(text_color = "red")
     elif entry_6.cget("text_color") == "red":
@@ -264,6 +268,8 @@ def read_orient():
         state.set("Normal state")
         entry_11.configure(text_color = "green")
 
+    update_orintation()
+
     if error_state[5]:
         entry_7.configure(text_color = "red") 
     elif entry_7.cget("text_color") == "red":
@@ -294,7 +300,7 @@ def update_current_voltage():
     except:
         pass    #if queue is empty then do nothing
     
-    app.after(delay_read_UI * 1000 + 3500, update_current_voltage)  #this fun is called every given time
+    #app.after(delay_read_UI * 1000 + 3500, update_current_voltage)  #this fun is called every given time
 
 
 def update_temp(): 
@@ -314,7 +320,7 @@ def update_temp():
     except:
         pass
 
-    app.after(delay_read_T * 1000 + 3000, update_temp)
+    #app.after(delay_read_T * 1000 + 3000, update_temp)
 
 
 def update_orintation(): 
@@ -333,7 +339,7 @@ def update_orintation():
     except:
         pass
 
-    app.after(delay_read_C * 1000 + 3000, update_orintation)
+    #app.after(delay_read_C * 1000 + 3000, update_orintation)
 
 
 def update_data_from_switch(): 
@@ -368,69 +374,73 @@ def update_data_from_switch():
 
         switch_ant()    #if there is need then switch the antenna
 
-        error_state = q_state.get()
-        error_state[0] = evaluate_state("IA", data[0])
-        if not data[7]:
-            error_state[1] = False
-        else:
-            error_state[1] = evaluate_state("IB", data[1])
-        error_state[2] = evaluate_state("U", data[4])
-        error_state[3] = evaluate_state("TA", data[2])
-        error_state[4] = evaluate_state("TB", data[3])
-        error_state[5] = evaluate_state("C", data[5])
-        q_state.put(error_state)
-        q_state.task_done()
-
-        if True in error_state:
-            state.set("Warning!")
-            entry_11.configure(text_color = "red")
-        else:
-            state.set("Normal state")
-            entry_11.configure(text_color = "green")
+        try:
+            error_state = q_state.get()
+            error_state[0] = evaluate_state("IA", data[0])
+            if not data[7]:
+                error_state[1] = False
+            else:
+                error_state[1] = evaluate_state("IB", data[1])
+            error_state[2] = evaluate_state("U", data[4])
+            error_state[3] = evaluate_state("TA", data[2])
+            error_state[4] = evaluate_state("TB", data[3])
+            error_state[5] = evaluate_state("C", data[5])
+            q_state.put(error_state)
+            q_state.task_done()
         
-        if error_state[0]:
-            entry_5.configure(text_color = "red")
+            if True in error_state:
+                state.set("Warning!")
+                entry_11.configure(text_color = "red")
+            else:
+                state.set("Normal state")
+                entry_11.configure(text_color = "green")
+            
+            if error_state[0]:
+                entry_5.configure(text_color = "red")
 
-        elif entry_5.cget("text_color") == "red":
-            entry_5.configure(text_color = "black")
+            elif entry_5.cget("text_color") == "red":
+                entry_5.configure(text_color = "black")
 
-        if error_state[1]:
-            entry_8.configure(text_color = "red")  
+            if error_state[1]:
+                entry_8.configure(text_color = "red")  
 
-        elif entry_8.cget("text_color") == "red":
-            entry_8.configure(text_color = "black") 
+            elif entry_8.cget("text_color") == "red":
+                entry_8.configure(text_color = "black") 
 
-        if error_state[2]:
-            entry_4.configure(text_color = "red") 
+            if error_state[2]:
+                entry_4.configure(text_color = "red") 
 
-        elif entry_4.cget("text_color") == "red":
-            entry_4.configure(text_color = "black") 
+            elif entry_4.cget("text_color") == "red":
+                entry_4.configure(text_color = "black") 
 
-        if error_state[3]:
-            entry_6.configure(text_color = "red")
+            if error_state[3]:
+                entry_6.configure(text_color = "red")
 
-        elif entry_6.cget("text_color") == "red":
-            entry_6.configure(text_color = "black")
+            elif entry_6.cget("text_color") == "red":
+                entry_6.configure(text_color = "black")
 
-        if error_state[4]:
-            entry_9.configure(text_color = "red")
+            if error_state[4]:
+                entry_9.configure(text_color = "red")
 
-        elif entry_9.cget("text_color") == "red":
-            entry_9.configure(text_color = "black")
+            elif entry_9.cget("text_color") == "red":
+                entry_9.configure(text_color = "black")
 
-        if error_state[5]:
-            entry_7.configure(text_color = "red") 
+            if error_state[5]:
+                entry_7.configure(text_color = "red") 
 
-        elif entry_7.cget("text_color") == "red":
-            entry_7.configure(text_color = "black") 
+            elif entry_7.cget("text_color") == "red":
+                entry_7.configure(text_color = "black") 
+        except:
+            pass
 
 
         if switch_com_TK.get() == "Switch: Disconnected":
             switch_com_TK.set("Switch: Connected")
-    else:
-        switch_com_TK.set("Switch: Disconnected")
+        else:
+            switch_com_TK.set("Switch: Disconnected")
 
-
+    return
+    
 def B_conn_set():
     """Gray out the label boxes with diag. data IA and TB if selected tha B unit is not connected if yes then evaluate the data."""
     if B_connected.get():
@@ -525,6 +535,9 @@ def checkbtn_fun():
     if(checkbtn_5.get()):
         i = i + 1  
         ant_str += " 5"    
+    if i == 0:
+        ant_str = "0"
+
     if(i >= 3):
         if(not checkbtn_1.get()): checkbtn_1.configure(state = 'disabled')
         if(not checkbtn_2.get()): checkbtn_2.configure(state = 'disabled')
@@ -886,13 +899,13 @@ def create_new_window():
     L_title = cstk.CTkLabel(app_set_range, text = "Settings", font = ("Cambria", 17, "bold"), anchor = "center")
     L_title.grid(column = 0, columnspan = 2, row = 0, sticky = "NSEW")
 
-    L_set_current_A = cstk.CTkLabel(app_set_range, text = "Set error treshold for curretn to LNAs on A board [mA]:", font = ("Cambria", 14, "bold"))
+    L_set_current_A = cstk.CTkLabel(app_set_range, text = "Set error treshold for current to LNAs on A board [mA]:", font = ("Cambria", 14, "bold"))
     L_set_current_A.grid(column = 0, columnspan = 2, row = 1, padx = 50, pady = 2, sticky = "NSEW")
 
     E_set_current_A = cstk.CTkEntry(app_set_range, textvariable = max_cur_A, font = ("Cambria", 14))
     E_set_current_A.grid(column = 0, columnspan = 2, row = 2, padx = 50, sticky = "NSEW")
 
-    L_set_current_B = cstk.CTkLabel(app_set_range, text = "Set error treshold for curretn to LNAs on B board [mA]:", font = ("Cambria", 14, "bold"))
+    L_set_current_B = cstk.CTkLabel(app_set_range, text = "Set error treshold for current to LNAs on B board [mA]:", font = ("Cambria", 14, "bold"))
     L_set_current_B.grid(column = 0, columnspan = 2, row = 3, padx = 50, pady = 2, sticky = "NSEW")
 
     E_set_current_B = cstk.CTkEntry(app_set_range, textvariable = max_cur_B, font = ("Cambria", 14))
@@ -1122,7 +1135,6 @@ try:
 except:
     pass
 
-
 app.title("Antenna switch controller")
 
 app.columnconfigure(0, weight=1)
@@ -1172,7 +1184,7 @@ min_u_fant = cstk.StringVar()
 list_com = []
 config_com = ""
 ant_old = 0
-delay_read_UI = 60#30 #time for requesting new diagnostic data in sec
+delay_read_UI = 30#60 #time for requesting new diagnostic data in sec
 delay_read_T = 300
 delay_read_C = 900
 dde_con = False
@@ -1296,7 +1308,7 @@ entry_2.grid(column = 1, row = 2, padx = 2, sticky = "W")
 label_5 = cstk.CTkLabel(fr_sat_pos, text = "Antenna in use:", font = ("Cambria", 14))
 label_5.grid(column = 0, row = 3, columnspan = 2, pady = 10, sticky = "NSEW")
 entry_3 = cstk.CTkEntry(fr_sat_pos, font = ("Cambria", 14), state = "disabled", width = 80, textvariable = ant_TK, justify = "center")
-entry_3.grid(column = 0, row = 4, columnspan = 2, padx = 5, sticky = "NSEW")
+entry_3.grid(column = 0, row = 4, columnspan = 2, padx = 15, sticky = "NSEW")
 checkbtn_6 = cstk.CTkCheckBox(fr_sat_pos, text = "Coupling of two", variable = coupling, onvalue = True, offvalue = False, font = ("Cambria", 14), border_width = 2)
 checkbtn_6.grid(column = 0, row = 5, columnspan = 2, pady = 10, padx = 35,  sticky = "WE")
 
@@ -1332,7 +1344,10 @@ entry_7.grid(column = 1, row = 4, padx = 2, sticky = "WE")
 entry_12 = cstk.CTkEntry(fr_status, font = ("Cambria", 14), state = "disabled", width = 70, textvariable = orientation_manual_TK)
 entry_12.grid(column = 2, row = 4, padx = 2, sticky = "WE")
 entry_11 = cstk.CTkEntry(fr_status, font = ("Cambria", 14), state = "disabled", width = 70, textvariable = state, justify = "center")
-entry_11.grid(column = 0, row = 5, columnspan = 3, padx = 70, pady = 5, sticky = "WE")
+entry_11.grid(column = 0, row = 5, columnspan = 2, padx = 20, pady = 5, sticky = "WE")
+#btn_5 = cstk.CTkButton(fr_status,  image= refresh_button_image, text = "",  width=25, height=25, border_width=0,  command = threading.Thread(target = update_data_from_switch, daemon = True).start)
+btn_5 = cstk.CTkButton(fr_status, corner_radius = 3, text = "Man.\nRefresh", font = ("Cambria", 11), width= 20, command=lambda: threading.Thread(target = update_data_from_switch, daemon = True).start())
+btn_5.grid(column = 2, row = 5, sticky = "NS", pady = 5, padx = 5)#, pady = 5, padx = 5, ipadx = 0, ipady = 0
 
 #create frame for antenna switch configuration
 fr_ant_ctrl = cstk.CTkFrame(app, width = 200, height = 260)
@@ -1411,9 +1426,9 @@ t3.daemon = True
 t3.start()
 
 #after given time update data on screen by reading the proccesed data from ser. line
-app.after(delay_read_T * 1000 + 3000, update_temp)  
-app.after(delay_read_UI * 1000 + 3500, update_current_voltage)
-app.after(delay_read_C * 1000 + 3000, update_orintation)
+#app.after(delay_read_T * 1000 + 3000, update_temp)  
+#app.after(delay_read_UI * 1000 + 3500, update_current_voltage)
+#app.after(delay_read_C * 1000 + 3000, update_orintation)
 
 app.protocol("WM_DELETE_WINDOW", on_closing)    #on closing the app, call given function to end the ser. comm. and dde server 
 app.mainloop() #run the app

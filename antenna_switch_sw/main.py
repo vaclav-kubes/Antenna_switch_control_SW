@@ -1,7 +1,7 @@
 """
 Control program for five chanell antenna switch with diagnostics.
 
-Version 1.0
+Version 1.5
 
 Author: Václav Kubeš
 
@@ -21,7 +21,6 @@ import datetime
 import webbrowser
 import sys
 import os
-
 #==================== Functions definitions ====================
 def log_error():
     """Write down diagnostic data to error_logs CSV file.
@@ -51,7 +50,9 @@ def switch_ant():
 
 
 def ant_set(antenna):
-    """Writes the command to switch ant. to ser. line."""
+    """Writes the command to switch ant. to ser. line.
+        arg: (string) antenna
+    """
     while not q_done.get(): #wait until other serial writings are done
         q_done.task_done()
         time.sleep(0.3)
@@ -86,12 +87,12 @@ def evaluate_state(type_of_data, data):
     global config_or
     try:
         if type_of_data == "IA":
-            if data >= float(max_cur_A.get()) or data <= 20: #the range is given by the values from config file, can be set in app settings
+            if data >= float(max_cur_A.get()): #the range is given by the values from config file, can be set in app settings
                 return True
             else:
                 return False
         elif type_of_data == "IB":
-            if data >= float(max_cur_B.get()) or data <= 20:
+            if data >= float(max_cur_B.get()):
                 return True
             else:
                 return False
@@ -122,6 +123,7 @@ def evaluate_state(type_of_data, data):
 def on_closing():
     """Auxiliary function which is called after clicking on X"""
     try:
+        ant_set("0")
         ser_com.close() #end ser. comm. properly
         s.Shutdown()    #end dde server properly
         app.destroy()   #close main window and end the app
@@ -160,6 +162,7 @@ def read_U_I():
     q_state.put(error_state)
     q_state.task_done()
     
+    update_current_voltage()
 
     if True in error_state: #if there is an error in list of error states
         state.set("Warning!")   #then warning is diplayed
@@ -169,7 +172,7 @@ def read_U_I():
         state.set("Normal state") #else normal state is displayed
         entry_11.configure(text_color = "green")
 
-    #highlighte error values by turning them red or unhighlighte them if values are ok
+    #highlight error values by turning them red or unhighlight them if values are ok
     if error_state[0]:
         entry_5.configure(text_color = "red")       
     elif entry_5.cget("text_color") == "red":
@@ -184,6 +187,7 @@ def read_U_I():
         entry_4.configure(text_color = "red") 
     elif entry_4.cget("text_color") == "red":
         entry_4.configure(text_color = "black") 
+
 
     t = threading.Timer(function = read_U_I, interval = delay_read_UI)  #this function calls itself after given time 
     t.daemon = True
@@ -218,6 +222,8 @@ def read_temp():
     else:
         state.set("Normal state")
         entry_11.configure(text_color = "green")
+
+    update_temp()
 
     if error_state[3]:
         entry_6.configure(text_color = "red")
@@ -262,6 +268,8 @@ def read_orient():
         state.set("Normal state")
         entry_11.configure(text_color = "green")
 
+    update_orintation()
+
     if error_state[5]:
         entry_7.configure(text_color = "red") 
     elif entry_7.cget("text_color") == "red":
@@ -292,7 +300,7 @@ def update_current_voltage():
     except:
         pass    #if queue is empty then do nothing
     
-    app.after(delay_read_UI * 1000 + 3500, update_current_voltage)  #this fun is called every given time
+    #app.after(delay_read_UI * 1000 + 3500, update_current_voltage)  #this fun is called every given time
 
 
 def update_temp(): 
@@ -312,7 +320,7 @@ def update_temp():
     except:
         pass
 
-    app.after(delay_read_T * 1000 + 3000, update_temp)
+    #app.after(delay_read_T * 1000 + 3000, update_temp)
 
 
 def update_orintation(): 
@@ -331,7 +339,7 @@ def update_orintation():
     except:
         pass
 
-    app.after(delay_read_C * 1000 + 3000, update_orintation)
+    #app.after(delay_read_C * 1000 + 3000, update_orintation)
 
 
 def update_data_from_switch(): 
@@ -366,67 +374,72 @@ def update_data_from_switch():
 
         switch_ant()    #if there is need then switch the antenna
 
-        error_state = q_state.get()
-        error_state[0] = evaluate_state("IA", data[0])
-        if not data[7]:
-            error_state[1] = False
-        else:
-            error_state[1] = evaluate_state("IB", data[1])
-        error_state[2] = evaluate_state("U", data[4])
-        error_state[3] = evaluate_state("TA", data[2])
-        error_state[4] = evaluate_state("TB", data[3])
-        error_state[5] = evaluate_state("C", data[5])
-        q_state.put(error_state)
-        q_state.task_done()
-
-        if True in error_state:
-            state.set("Warning!")
-            entry_11.configure(text_color = "red")
-        else:
-            state.set("Normal state")
-            entry_11.configure(text_color = "green")
+        try:
+            error_state = q_state.get()
+            error_state[0] = evaluate_state("IA", data[0])
+            if not data[7]:
+                error_state[1] = False
+            else:
+                error_state[1] = evaluate_state("IB", data[1])
+            error_state[2] = evaluate_state("U", data[4])
+            error_state[3] = evaluate_state("TA", data[2])
+            error_state[4] = evaluate_state("TB", data[3])
+            error_state[5] = evaluate_state("C", data[5])
+            q_state.put(error_state)
+            q_state.task_done()
         
-        if error_state[0]:
-            entry_5.configure(text_color = "red")
+            if True in error_state:
+                state.set("Warning!")
+                entry_11.configure(text_color = "red")
+            else:
+                state.set("Normal state")
+                entry_11.configure(text_color = "green")
+            
+            if error_state[0]:
+                entry_5.configure(text_color = "red")
 
-        elif entry_5.cget("text_color") == "red":
-            entry_5.configure(text_color = "black")
+            elif entry_5.cget("text_color") == "red":
+                entry_5.configure(text_color = "black")
 
-        if error_state[1]:
-            entry_8.configure(text_color = "red")  
+            if error_state[1]:
+                entry_8.configure(text_color = "red")  
 
-        elif entry_8.cget("text_color") == "red":
-            entry_8.configure(text_color = "black") 
+            elif entry_8.cget("text_color") == "red":
+                entry_8.configure(text_color = "black") 
 
-        if error_state[2]:
-            entry_4.configure(text_color = "red") 
+            if error_state[2]:
+                entry_4.configure(text_color = "red") 
 
-        elif entry_4.cget("text_color") == "red":
-            entry_4.configure(text_color = "black") 
+            elif entry_4.cget("text_color") == "red":
+                entry_4.configure(text_color = "black") 
 
-        if error_state[3]:
-            entry_6.configure(text_color = "red")
+            if error_state[3]:
+                entry_6.configure(text_color = "red")
 
-        elif entry_6.cget("text_color") == "red":
-            entry_6.configure(text_color = "black")
+            elif entry_6.cget("text_color") == "red":
+                entry_6.configure(text_color = "black")
 
-        if error_state[4]:
-            entry_9.configure(text_color = "red")
+            if error_state[4]:
+                entry_9.configure(text_color = "red")
 
-        elif entry_9.cget("text_color") == "red":
-            entry_9.configure(text_color = "black")
+            elif entry_9.cget("text_color") == "red":
+                entry_9.configure(text_color = "black")
 
-        if error_state[5]:
-            entry_7.configure(text_color = "red") 
+            if error_state[5]:
+                entry_7.configure(text_color = "red") 
 
-        elif entry_7.cget("text_color") == "red":
-            entry_7.configure(text_color = "black") 
+            elif entry_7.cget("text_color") == "red":
+                entry_7.configure(text_color = "black") 
+        except:
+            pass
 
 
         if switch_com_TK.get() == "Switch: Disconnected":
             switch_com_TK.set("Switch: Connected")
-    else:
-        switch_com_TK.set("Switch: Disconnected")
+        else:
+            switch_com_TK.set("Switch: Disconnected")
+
+    return
 
 
 def B_conn_set():
@@ -434,30 +447,36 @@ def B_conn_set():
     if B_connected.get():
         entry_8.configure(fg_color= "white")  
         entry_9.configure(fg_color= "white")
-        IB = float(cur_B_TK.get())
-        TB = float(temp_B_TK.get())
-        error_state = q_state.get()
-        error_state[1] = evaluate_state("IB", IB)
-        error_state[4] = evaluate_state("TB", TB)
-        q_state.put(error_state)
-        q_state.task_done()
-        if True in error_state:
-            state.set("Warning!")
-            entry_11.configure(text_color = "red")
-        else:
-            state.set("Normal state")
-            entry_11.configure(text_color = "green")
-        if error_state[1]:
-            entry_8.configure(text_color = "red")  
-
-        elif entry_8.cget("text_color") == "red":
-            entry_8.configure(text_color = "black") 
+        try:
+            IB = float(cur_B_TK.get())
+            TB = float(temp_B_TK.get())
+            values_exist = True
+        except:
+            values_exist = False
         
-        if error_state[4]:
-            entry_9.configure(text_color = "red")
+        if values_exist:
+            error_state = q_state.get()
+            error_state[1] = evaluate_state("IB", IB)
+            error_state[4] = evaluate_state("TB", TB)
+            q_state.put(error_state)
+            q_state.task_done()
+            if True in error_state:
+                state.set("Warning!")
+                entry_11.configure(text_color = "red")
+            else:
+                state.set("Normal state")
+                entry_11.configure(text_color = "green")
+            if error_state[1]:
+                entry_8.configure(text_color = "red")  
 
-        elif entry_9.cget("text_color") == "red":
-            entry_9.configure(text_color = "black")
+            elif entry_8.cget("text_color") == "red":
+                entry_8.configure(text_color = "black") 
+            
+            if error_state[4]:
+                entry_9.configure(text_color = "red")
+
+            elif entry_9.cget("text_color") == "red":
+                entry_9.configure(text_color = "black")
     else:
         entry_8.configure(fg_color= "#dedede", text_color = "black")  
         entry_9.configure(fg_color= "#dedede", text_color = "black")
@@ -469,18 +488,20 @@ def B_conn_set():
     
 
 def switch_set_off():
-    """To switch off all anntennas and current to LNAs."""
+    """To switch off all antennas and current to LNAs."""
     checkbtn_1.configure(state = "disabled")
     checkbtn_2.configure(state = "disabled")
     checkbtn_3.configure(state = "disabled")
     checkbtn_4.configure(state = "disabled")
     checkbtn_5.configure(state = "disabled")
+    deselect_manal_chckbtn()
     ant_TK.set('0')
     switch_ant()
 
 
 def auto_on():
     """Auxiliary function to disable checkbuttons if auto switching is on."""
+    deselect_manal_chckbtn()
     checkbtn_1.configure(state = "disabled")
     checkbtn_2.configure(state = "disabled")
     checkbtn_3.configure(state = "disabled")
@@ -497,6 +518,11 @@ def manual_on():
     checkbtn_3.configure(state = "normal")
     checkbtn_4.configure(state = "normal")
     checkbtn_5.configure(state = "normal")
+    deselect_manal_chckbtn()
+
+
+def deselect_manal_chckbtn():
+    """Reset check buttons for manual antennas selection"""
     ant1_on.set(False)  #reset previous settings
     ant2_on.set(False)
     ant3_on.set(False)
@@ -523,6 +549,9 @@ def checkbtn_fun():
     if(checkbtn_5.get()):
         i = i + 1  
         ant_str += " 5"    
+    if i == 0:
+        ant_str = "0"
+
     if(i >= 3):
         if(not checkbtn_1.get()): checkbtn_1.configure(state = 'disabled')
         if(not checkbtn_2.get()): checkbtn_2.configure(state = 'disabled')
@@ -629,25 +658,49 @@ def auto_select_ant():
         ant_orientation = float(orientation_manual_TK.get()[:-2])
         az = float(azimut_TK.get()[:-1])
         el = float(elevation_TK.get()[:-1])
+        el_treshold = elevation_treshold_TK.get()
         #360° is divided to 4 quadrants according to antenna orientation
         #according to currnet tracking data the antenna is selected
         ant = 0
-        if el < 70 and el > 0:
-            if az >= divmod(ant_orientation - 45, 360)[1] and az <= divmod(ant_orientation + 45, 360)[1]:     
-                ant = 1
-            elif az >= divmod(ant_orientation + 45, 360)[1] and az <= divmod(ant_orientation + 135, 360)[1]:
-                ant = 2
-            elif az >= divmod(ant_orientation + 135, 360)[1] and az <= divmod(ant_orientation + 225, 360)[1]:
-                ant = 3
-            elif az >= divmod(ant_orientation + 225, 360)[1] and az <= divmod(ant_orientation + 315, 360)[1]:
-                ant = 4
-            return ant
-        elif el < 0:
-            return 0
+        if el_treshold == 91:   #if el. treshold is set to "still ON" then only ant 5 is on
+            ant = 5
+        elif el_treshold != 0:
+            if el < el_treshold and el > 0:   #if el is under the el treshold for ant 5 then use other antennas according to azimuth
+                ant = az_to_ant_eval(ant_orientation, az)
+            elif el <= 0: 
+                ant = 0
+            else:
+                ant = 5
+        elif el_treshold == 0:
+            if el > 0:   #if el is under the el treshold for ant 5 then use other antennas according to azimuth
+                ant = az_to_ant_eval(ant_orientation, az)
+            elif el <= 0:
+                ant = 0
         else:
-            return 5
+            ant = 0
+
+        return ant
     except:
         return 0
+
+
+def az_to_ant_eval(ant_orientation:float, az:float):
+    """To assign the correct antenna to satellite position according to its azimuth and ant. orientation
+        Args: 
+            ant_orientation (float): azimuth og antenna 1
+            az (float): azimuth of satellite 
+        Return: 
+            (string) selected antenna(s)"""
+    
+    ant = 0
+    if not coupling.get():  #if coupling is not in use
+        pos = divmod(divmod(az - ant_orientation, 360)[1] + 45, 90)[0]  #enumerate which antenna should be, used modulo used to "rotate the antena" and then to devide 360 to 4 parts
+        ant = (int(pos) % 4) + 1
+    else: #if coupling is in use
+        pos = divmod(divmod(az - ant_orientation, 360)[1] + 45/2, 45)[0]
+        ant_list = [1, 12, 2, 23, 3, 34, 4, 41]
+        ant = ant_list[int(pos) % 8]
+    return ant
 
 
 def ant_orientation_set_a():
@@ -751,7 +804,7 @@ def ant_orientation_set_m():
         msg.CTkMessagebox(title="No change.", message="No change.")
 
 
-def com_select(choice):
+def com_select(choice:str):
     """Function called after selcting from option menu. Tries to connect to selected COM port. 
         Args:
             choice (str): selected COM port from option menu
@@ -841,6 +894,7 @@ def create_new_window():
         min_u_fant.set(content[9][:-1])
         max_u_fant.set(content[10][:-1])
         B_connected.set(bool(float(content[11][:-1])))
+        elevation_treshold_TK.set(int(float(content[12][:-1])))
     except: #otherwise load default values
         max_cur_A.set("650")
         max_cur_B.set("650")
@@ -852,10 +906,13 @@ def create_new_window():
         B_connected.set(False)
         max_u_fant.set("12")
         min_u_fant.set("7")
+        elevation_treshold_TK.set(70)
+
+    change_el_treshold(elevation_treshold_TK.get())
 
     app_set_range = cstk.CTkToplevel(app)   #create new window
-    app_set_range.geometry("500x700")
-    app_set_range.minsize(width = 500, height = 700)
+    app_set_range.geometry("500x750")
+    app_set_range.minsize(width = 500, height = 750)
     app_set_range.title("Set error tresholds")
     app_set_range.focus()
     #photo = PhotoImage(file = "icon.ico")
@@ -866,13 +923,13 @@ def create_new_window():
     L_title = cstk.CTkLabel(app_set_range, text = "Settings", font = ("Cambria", 17, "bold"), anchor = "center")
     L_title.grid(column = 0, columnspan = 2, row = 0, sticky = "NSEW")
 
-    L_set_current_A = cstk.CTkLabel(app_set_range, text = "Set error treshold for curretn to LNAs on A board [mA]:", font = ("Cambria", 14, "bold"))
+    L_set_current_A = cstk.CTkLabel(app_set_range, text = "Set error treshold for current to LNAs on A board [mA]:", font = ("Cambria", 14, "bold"))
     L_set_current_A.grid(column = 0, columnspan = 2, row = 1, padx = 50, pady = 2, sticky = "NSEW")
 
     E_set_current_A = cstk.CTkEntry(app_set_range, textvariable = max_cur_A, font = ("Cambria", 14))
     E_set_current_A.grid(column = 0, columnspan = 2, row = 2, padx = 50, sticky = "NSEW")
 
-    L_set_current_B = cstk.CTkLabel(app_set_range, text = "Set error treshold for curretn to LNAs on B board [mA]:", font = ("Cambria", 14, "bold"))
+    L_set_current_B = cstk.CTkLabel(app_set_range, text = "Set error treshold for current to LNAs on B board [mA]:", font = ("Cambria", 14, "bold"))
     L_set_current_B.grid(column = 0, columnspan = 2, row = 3, padx = 50, pady = 2, sticky = "NSEW")
 
     E_set_current_B = cstk.CTkEntry(app_set_range, textvariable = max_cur_B, font = ("Cambria", 14))
@@ -924,16 +981,34 @@ def create_new_window():
     L_set_B_conn.grid(column = 0, columnspan = 2, row = 19, padx = 50, pady = 2, sticky = "NSEW")
 
     CH_set_B_conn = cstk.CTkCheckBox(app_set_range, variable = B_connected, onvalue = True, offvalue = False, text = "Yes", font = ("Cambria", 14, "bold"), command = B_conn_set)
-    CH_set_B_conn.grid(column = 0, columnspan = 2, row = 20, padx = 50, pady = 2, sticky = "NSEW")
+    CH_set_B_conn.grid(column = 0, columnspan = 2, row = 20, padx = 15, pady = 2)#, sticky = "EW"
+
+    L_slider_EL = cstk.CTkLabel(app_set_range, text = "Set elevation treshold for ant. 5 [°]:", font = ("Cambria", 14, "bold"))
+    L_slider_EL.grid(column = 0, columnspan = 2, row = 21, padx = 50, pady = 2, sticky = "NSEW")
+
+    slider_EL_set = cstk.CTkSlider(app_set_range, from_ = 0, to = 91, number_of_steps = 91, variable = elevation_treshold_TK, width = 60, command = change_el_treshold)
+    slider_EL_set.grid(column = 0, row = 22, padx = 50, pady = 2, sticky = "EW")
+
+    L_slider_val_EL = cstk.CTkLabel(app_set_range, textvariable = L_TK_elevation, font = ("Cambria", 14, "bold")) #slider to set treshold of elevation for ant 5
+    L_slider_val_EL.grid(column = 1, row = 22, padx = 50, pady = 2, sticky = "NSEW")
 
     B_set = cstk.CTkButton(app_set_range, text = "Save", font = ("Cambria", 14), command = lambda: set_tresholds(app_set_range))
-    B_set.grid(column = 0, row = 21, padx = 20, pady = 10, sticky = "NSEW")
+    B_set.grid(column = 0, row = 23, padx = 20, pady = 10, sticky = "NSEW")
 
     B_close = cstk.CTkButton(app_set_range, text = "Close", font = ("Cambria", 14), command = lambda: close_settings(app_set_range))
-    B_close.grid(column = 1, row = 21, padx = 20, pady = 10, sticky = "NSEW")
+    B_close.grid(column = 1, row = 23, padx = 20, pady = 10, sticky = "NSEW")
 
     app_set_range.protocol("WM_DELETE_WINDOW", lambda:close_settings(app_set_range))    #set what should happend if this window is closed
     app_set_range.after_idle(app_set_range.lift)    #make sure that the window is on top
+
+
+def change_el_treshold(value):
+    if value == 91:
+        L_TK_elevation.set("Only ant. 5")
+    elif value == 0:
+        L_TK_elevation.set("OFF")
+    else:
+        L_TK_elevation.set(str(int(value)))
 
 
 def set_tresholds(app_set_range):
@@ -947,7 +1022,7 @@ def set_tresholds(app_set_range):
     value_list = []
 
     for n in app_set_range.children.keys(): #for each widget in settings window
-        if "entry" in n or "checkbox" in n: #if the name of widget contains entry or checkbox
+        if "entry" in n or "checkbox" in n or "slider" in n: #if the name of widget contains entry or checkbox
             try:
                 text_value = app_set_range.children[n].get()    #get the value of the widget
                 if isinstance(text_value, str): #if the value is string
@@ -1068,7 +1143,7 @@ def set_tresholds(app_set_range):
                 entry_7.configure(text_color = "black") 
             
         close_settings(app_set_range)
-
+    
 
 def close_settings(app_set_range):
     """Called on settings window closing. Enables clickability of app settings button.
@@ -1080,6 +1155,7 @@ def close_settings(app_set_range):
 def app_info():
     """Open github readme in the browser."""
     webbrowser.open('https://github.com/vaclav-kubes/Antenna_switch_control_SW/blob/main/README.md')
+
 
 def src_path(rel_path):
     """Retrieve absolute path to file for dev and for PyInstaller otherwise icon wont load"""
@@ -1102,7 +1178,6 @@ try:
 except:
     pass
 
-
 app.title("Antenna switch controller")
 
 app.columnconfigure(0, weight=1)
@@ -1120,6 +1195,7 @@ ant2_on = cstk.BooleanVar()
 ant3_on = cstk.BooleanVar()
 ant4_on = cstk.BooleanVar()
 ant5_on = cstk.BooleanVar()
+coupling = cstk.BooleanVar()
 dde_data = cstk.StringVar()
 azimut_TK = cstk.StringVar()
 elevation_TK = cstk.StringVar()
@@ -1145,13 +1221,15 @@ max_az_dev = cstk.StringVar()
 B_connected = cstk.BooleanVar()
 max_u_fant = cstk.StringVar()
 min_u_fant = cstk.StringVar()
+elevation_treshold_TK = cstk.IntVar()
+L_TK_elevation = cstk.StringVar()
 #switch_off = cstk.BooleanVar()
 
 #declaring variables
 list_com = []
 config_com = ""
 ant_old = 0
-delay_read_UI = 60#30 #time for requesting new diagnostic data in sec
+delay_read_UI = 30#60 #time for requesting new diagnostic data in sec
 delay_read_T = 300
 delay_read_C = 900
 dde_con = False
@@ -1203,11 +1281,12 @@ try: #try to open configuration file and retrieve the config. data: ant. orintat
     min_u_fant.set(config.readline().strip("\n"))
     max_u_fant.set(config.readline().strip("\n"))
     B_connected.set(bool(float(config.readline().strip("\n")+'0')))
+    elevation_treshold_TK.set(int(float(config.readline().strip("\n"))))
     config.close()
     
-except: #if config file doesnt exist create ne file and write there default values for limits of diagn. data, COM port and ant. or. is left empty for further writing
+except: #if config file doesnt exist create new file and write there default values for limits of diagn. data, COM port and ant. or. is left empty for further writing
     config = open("config.txt", "x", encoding = "utf-8")
-    config.writelines(["\n","\n", "650\n", "650\n", "-10\n", "50\n", "-10\n", "50\n", "10\n", "7\n", "12\n", "0\n"])
+    config.writelines(["\n","\n", "650\n", "650\n", "-10\n", "50\n", "-10\n", "50\n", "10\n", "7\n", "12\n", "0\n", "70\n"])
     config.close()
     max_cur_A.set("650")
     max_cur_B.set("650")
@@ -1219,10 +1298,11 @@ except: #if config file doesnt exist create ne file and write there default valu
     max_u_fant.set("12")
     min_u_fant.set("7")
     B_connected.set(False)
+    elevation_treshold_TK.set(70)
 
 get_com = available_com()   #get available COM ports
 
-if not get_com and config_com: #if list of COM ports is empty and there is COM port in config file
+if not (get_com and config_com): #if list of COM ports is empty and there is COM port in config file
     list_com.append(config_com[:-1]) #append COM port from config file to option menu 
     com_TK.set(config_com[:-1])
 elif get_com and config_com:   #if there are COM ports available then put them to option menu
@@ -1275,7 +1355,9 @@ entry_2.grid(column = 1, row = 2, padx = 2, sticky = "W")
 label_5 = cstk.CTkLabel(fr_sat_pos, text = "Antenna in use:", font = ("Cambria", 14))
 label_5.grid(column = 0, row = 3, columnspan = 2, pady = 10, sticky = "NSEW")
 entry_3 = cstk.CTkEntry(fr_sat_pos, font = ("Cambria", 14), state = "disabled", width = 80, textvariable = ant_TK, justify = "center")
-entry_3.grid(column = 0, row = 4, columnspan = 2, padx = 30, sticky = "NSEW")
+entry_3.grid(column = 0, row = 4, columnspan = 2, padx = 15, sticky = "NSEW")
+checkbtn_6 = cstk.CTkCheckBox(fr_sat_pos, text = "Coupling of two", variable = coupling, onvalue = True, offvalue = False, font = ("Cambria", 14), border_width = 2)
+checkbtn_6.grid(column = 0, row = 5, columnspan = 2, pady = 10, padx = 35,  sticky = "WE")
 
 #create frame for displaying diagnostitcal data from swich
 fr_status = cstk.CTkFrame(app, width = 250, height = 230)
@@ -1309,7 +1391,10 @@ entry_7.grid(column = 1, row = 4, padx = 2, sticky = "WE")
 entry_12 = cstk.CTkEntry(fr_status, font = ("Cambria", 14), state = "disabled", width = 70, textvariable = orientation_manual_TK)
 entry_12.grid(column = 2, row = 4, padx = 2, sticky = "WE")
 entry_11 = cstk.CTkEntry(fr_status, font = ("Cambria", 14), state = "disabled", width = 70, textvariable = state, justify = "center")
-entry_11.grid(column = 0, row = 5, columnspan = 3, padx = 70, pady = 5, sticky = "WE")
+entry_11.grid(column = 0, row = 5, columnspan = 2, padx = 20, pady = 5, sticky = "WE")
+#btn_5 = cstk.CTkButton(fr_status,  image= refresh_button_image, text = "",  width=25, height=25, border_width=0,  command = threading.Thread(target = update_data_from_switch, daemon = True).start)
+btn_5 = cstk.CTkButton(fr_status, corner_radius = 3, text = "Man.\nRefresh", font = ("Cambria", 11), width= 20, command=lambda: threading.Thread(target = update_data_from_switch, daemon = True).start())
+btn_5.grid(column = 2, row = 5, sticky = "NS", pady = 5, padx = 5)#, pady = 5, padx = 5, ipadx = 0, ipady = 0
 
 #create frame for antenna switch configuration
 fr_ant_ctrl = cstk.CTkFrame(app, width = 200, height = 260)
@@ -1388,10 +1473,12 @@ t3.daemon = True
 t3.start()
 
 #after given time update data on screen by reading the proccesed data from ser. line
-app.after(delay_read_T * 1000 + 3000, update_temp)  
-app.after(delay_read_UI * 1000 + 3500, update_current_voltage)
-app.after(delay_read_C * 1000 + 3000, update_orintation)
+#app.after(delay_read_T * 1000 + 3000, update_temp)  
+#app.after(delay_read_UI * 1000 + 3500, update_current_voltage)
+#app.after(delay_read_C * 1000 + 3000, update_orintation)
 
 app.protocol("WM_DELETE_WINDOW", on_closing)    #on closing the app, call given function to end the ser. comm. and dde server 
 app.mainloop() #run the app
 
+#to generate EXE:
+#               $pyinstaller --onefile --noconsole --clean --icon='icon.ico' --add-data 'icon.ico;.' --name antenna_switch_control  main.py

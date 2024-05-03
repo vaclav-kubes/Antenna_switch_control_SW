@@ -87,12 +87,12 @@ def evaluate_state(type_of_data, data):
     global config_or
     try:
         if type_of_data == "IA":
-            if data >= float(max_cur_A.get()) or data <= 20: #the range is given by the values from config file, can be set in app settings
+            if data >= float(max_cur_A.get()): #the range is given by the values from config file, can be set in app settings
                 return True
             else:
                 return False
         elif type_of_data == "IB":
-            if data >= float(max_cur_B.get()) or data <= 20:
+            if data >= float(max_cur_B.get()):
                 return True
             else:
                 return False
@@ -440,36 +440,43 @@ def update_data_from_switch():
             switch_com_TK.set("Switch: Disconnected")
 
     return
-    
+
+
 def B_conn_set():
     """Gray out the label boxes with diag. data IA and TB if selected tha B unit is not connected if yes then evaluate the data."""
     if B_connected.get():
         entry_8.configure(fg_color= "white")  
         entry_9.configure(fg_color= "white")
-        IB = float(cur_B_TK.get())
-        TB = float(temp_B_TK.get())
-        error_state = q_state.get()
-        error_state[1] = evaluate_state("IB", IB)
-        error_state[4] = evaluate_state("TB", TB)
-        q_state.put(error_state)
-        q_state.task_done()
-        if True in error_state:
-            state.set("Warning!")
-            entry_11.configure(text_color = "red")
-        else:
-            state.set("Normal state")
-            entry_11.configure(text_color = "green")
-        if error_state[1]:
-            entry_8.configure(text_color = "red")  
-
-        elif entry_8.cget("text_color") == "red":
-            entry_8.configure(text_color = "black") 
+        try:
+            IB = float(cur_B_TK.get())
+            TB = float(temp_B_TK.get())
+            values_exist = True
+        except:
+            values_exist = False
         
-        if error_state[4]:
-            entry_9.configure(text_color = "red")
+        if values_exist:
+            error_state = q_state.get()
+            error_state[1] = evaluate_state("IB", IB)
+            error_state[4] = evaluate_state("TB", TB)
+            q_state.put(error_state)
+            q_state.task_done()
+            if True in error_state:
+                state.set("Warning!")
+                entry_11.configure(text_color = "red")
+            else:
+                state.set("Normal state")
+                entry_11.configure(text_color = "green")
+            if error_state[1]:
+                entry_8.configure(text_color = "red")  
 
-        elif entry_9.cget("text_color") == "red":
-            entry_9.configure(text_color = "black")
+            elif entry_8.cget("text_color") == "red":
+                entry_8.configure(text_color = "black") 
+            
+            if error_state[4]:
+                entry_9.configure(text_color = "red")
+
+            elif entry_9.cget("text_color") == "red":
+                entry_9.configure(text_color = "black")
     else:
         entry_8.configure(fg_color= "#dedede", text_color = "black")  
         entry_9.configure(fg_color= "#dedede", text_color = "black")
@@ -481,18 +488,20 @@ def B_conn_set():
     
 
 def switch_set_off():
-    """To switch off all anntennas and current to LNAs."""
+    """To switch off all antennas and current to LNAs."""
     checkbtn_1.configure(state = "disabled")
     checkbtn_2.configure(state = "disabled")
     checkbtn_3.configure(state = "disabled")
     checkbtn_4.configure(state = "disabled")
     checkbtn_5.configure(state = "disabled")
+    deselect_manal_chckbtn()
     ant_TK.set('0')
     switch_ant()
 
 
 def auto_on():
     """Auxiliary function to disable checkbuttons if auto switching is on."""
+    deselect_manal_chckbtn()
     checkbtn_1.configure(state = "disabled")
     checkbtn_2.configure(state = "disabled")
     checkbtn_3.configure(state = "disabled")
@@ -509,6 +518,11 @@ def manual_on():
     checkbtn_3.configure(state = "normal")
     checkbtn_4.configure(state = "normal")
     checkbtn_5.configure(state = "normal")
+    deselect_manal_chckbtn()
+
+
+def deselect_manal_chckbtn():
+    """Reset check buttons for manual antennas selection"""
     ant1_on.set(False)  #reset previous settings
     ant2_on.set(False)
     ant3_on.set(False)
@@ -644,43 +658,49 @@ def auto_select_ant():
         ant_orientation = float(orientation_manual_TK.get()[:-2])
         az = float(azimut_TK.get()[:-1])
         el = float(elevation_TK.get()[:-1])
+        el_treshold = elevation_treshold_TK.get()
         #360° is divided to 4 quadrants according to antenna orientation
         #according to currnet tracking data the antenna is selected
         ant = 0
-        if el < 70 and el > 0:
-            if not coupling.get():
-                if az >= divmod(ant_orientation - 45, 360)[1] and az <= divmod(ant_orientation + 45, 360)[1]:     
-                    ant = 1
-                elif az >= divmod(ant_orientation + 45, 360)[1] and az <= divmod(ant_orientation + 135, 360)[1]:
-                    ant = 2
-                elif az >= divmod(ant_orientation + 135, 360)[1] and az <= divmod(ant_orientation + 225, 360)[1]:
-                    ant = 3
-                elif az >= divmod(ant_orientation + 225, 360)[1] and az <= divmod(ant_orientation + 315, 360)[1]:
-                    ant = 4
+        if el_treshold == 91:   #if el. treshold is set to "still ON" then only ant 5 is on
+            ant = 5
+        elif el_treshold != 0:
+            if el < el_treshold and el > 0:   #if el is under the el treshold for ant 5 then use other antennas according to azimuth
+                ant = az_to_ant_eval(ant_orientation, az)
+            elif el <= 0: 
+                ant = 0
             else:
-                if az >= divmod(ant_orientation - 22.5, 360)[1] and az <= divmod(ant_orientation + 22.5, 360)[1]:     
-                    ant = 1
-                elif az >= divmod(ant_orientation + 22.5, 360)[1] and az <= divmod(ant_orientation + 67.5, 360)[1]:
-                    ant = 12
-                elif az >= divmod(ant_orientation + 67.5, 360)[1] and az <= divmod(ant_orientation + 112.5, 360)[1]:
-                    ant = 2
-                elif az >= divmod(ant_orientation + 112.5, 360)[1] and az <= divmod(ant_orientation + 157.5, 360)[1]:
-                    ant = 23
-                elif az >= divmod(ant_orientation + 157.5, 360)[1] and az <= divmod(ant_orientation + 202.5, 360)[1]:
-                    ant = 3
-                elif az >= divmod(ant_orientation + 202.5, 360)[1] and az <= divmod(ant_orientation + 247.5, 360)[1]:
-                    ant = 34
-                elif az >= divmod(ant_orientation + 247.5, 360)[1] and az <= divmod(ant_orientation + 292.5, 360)[1]:
-                    ant = 4
-                elif az >= divmod(ant_orientation + 292.5, 360)[1] and az <= divmod(ant_orientation + 337.5, 360)[1]:
-                    ant = 41
-            return ant
-        elif el <= 0:
-            return 0
+                ant = 5
+        elif el_treshold == 0:
+            if el > 0:   #if el is under the el treshold for ant 5 then use other antennas according to azimuth
+                ant = az_to_ant_eval(ant_orientation, az)
+            elif el <= 0:
+                ant = 0
         else:
-            return 5
+            ant = 0
+
+        return ant
     except:
         return 0
+
+
+def az_to_ant_eval(ant_orientation:float, az:float):
+    """To assign the correct antenna to satellite position according to its azimuth and ant. orientation
+        Args: 
+            ant_orientation (float): azimuth og antenna 1
+            az (float): azimuth of satellite 
+        Return: 
+            (string) selected antenna(s)"""
+    
+    ant = 0
+    if not coupling.get():  #if coupling is not in use
+        pos = divmod(divmod(az - ant_orientation, 360)[1] + 45, 90)[0]  #enumerate which antenna should be, used modulo used to "rotate the antena" and then to devide 360 to 4 parts
+        ant = (int(pos) % 4) + 1
+    else: #if coupling is in use
+        pos = divmod(divmod(az - ant_orientation, 360)[1] + 45/2, 45)[0]
+        ant_list = [1, 12, 2, 23, 3, 34, 4, 41]
+        ant = ant_list[int(pos) % 8]
+    return ant
 
 
 def ant_orientation_set_a():
@@ -784,7 +804,7 @@ def ant_orientation_set_m():
         msg.CTkMessagebox(title="No change.", message="No change.")
 
 
-def com_select(choice):
+def com_select(choice:str):
     """Function called after selcting from option menu. Tries to connect to selected COM port. 
         Args:
             choice (str): selected COM port from option menu
@@ -874,6 +894,7 @@ def create_new_window():
         min_u_fant.set(content[9][:-1])
         max_u_fant.set(content[10][:-1])
         B_connected.set(bool(float(content[11][:-1])))
+        elevation_treshold_TK.set(int(float(content[12][:-1])))
     except: #otherwise load default values
         max_cur_A.set("650")
         max_cur_B.set("650")
@@ -885,10 +906,13 @@ def create_new_window():
         B_connected.set(False)
         max_u_fant.set("12")
         min_u_fant.set("7")
+        elevation_treshold_TK.set(70)
+
+    change_el_treshold(elevation_treshold_TK.get())
 
     app_set_range = cstk.CTkToplevel(app)   #create new window
-    app_set_range.geometry("500x700")
-    app_set_range.minsize(width = 500, height = 700)
+    app_set_range.geometry("500x750")
+    app_set_range.minsize(width = 500, height = 750)
     app_set_range.title("Set error tresholds")
     app_set_range.focus()
     #photo = PhotoImage(file = "icon.ico")
@@ -957,16 +981,34 @@ def create_new_window():
     L_set_B_conn.grid(column = 0, columnspan = 2, row = 19, padx = 50, pady = 2, sticky = "NSEW")
 
     CH_set_B_conn = cstk.CTkCheckBox(app_set_range, variable = B_connected, onvalue = True, offvalue = False, text = "Yes", font = ("Cambria", 14, "bold"), command = B_conn_set)
-    CH_set_B_conn.grid(column = 0, columnspan = 2, row = 20, padx = 50, pady = 2, sticky = "NSEW")
+    CH_set_B_conn.grid(column = 0, columnspan = 2, row = 20, padx = 15, pady = 2)#, sticky = "EW"
+
+    L_slider_EL = cstk.CTkLabel(app_set_range, text = "Set elevation treshold for ant. 5 [°]:", font = ("Cambria", 14, "bold"))
+    L_slider_EL.grid(column = 0, columnspan = 2, row = 21, padx = 50, pady = 2, sticky = "NSEW")
+
+    slider_EL_set = cstk.CTkSlider(app_set_range, from_ = 0, to = 91, number_of_steps = 91, variable = elevation_treshold_TK, width = 60, command = change_el_treshold)
+    slider_EL_set.grid(column = 0, row = 22, padx = 50, pady = 2, sticky = "EW")
+
+    L_slider_val_EL = cstk.CTkLabel(app_set_range, textvariable = L_TK_elevation, font = ("Cambria", 14, "bold")) #slider to set treshold of elevation for ant 5
+    L_slider_val_EL.grid(column = 1, row = 22, padx = 50, pady = 2, sticky = "NSEW")
 
     B_set = cstk.CTkButton(app_set_range, text = "Save", font = ("Cambria", 14), command = lambda: set_tresholds(app_set_range))
-    B_set.grid(column = 0, row = 21, padx = 20, pady = 10, sticky = "NSEW")
+    B_set.grid(column = 0, row = 23, padx = 20, pady = 10, sticky = "NSEW")
 
     B_close = cstk.CTkButton(app_set_range, text = "Close", font = ("Cambria", 14), command = lambda: close_settings(app_set_range))
-    B_close.grid(column = 1, row = 21, padx = 20, pady = 10, sticky = "NSEW")
+    B_close.grid(column = 1, row = 23, padx = 20, pady = 10, sticky = "NSEW")
 
     app_set_range.protocol("WM_DELETE_WINDOW", lambda:close_settings(app_set_range))    #set what should happend if this window is closed
     app_set_range.after_idle(app_set_range.lift)    #make sure that the window is on top
+
+
+def change_el_treshold(value):
+    if value == 91:
+        L_TK_elevation.set("Only ant. 5")
+    elif value == 0:
+        L_TK_elevation.set("OFF")
+    else:
+        L_TK_elevation.set(str(int(value)))
 
 
 def set_tresholds(app_set_range):
@@ -980,7 +1022,7 @@ def set_tresholds(app_set_range):
     value_list = []
 
     for n in app_set_range.children.keys(): #for each widget in settings window
-        if "entry" in n or "checkbox" in n: #if the name of widget contains entry or checkbox
+        if "entry" in n or "checkbox" in n or "slider" in n: #if the name of widget contains entry or checkbox
             try:
                 text_value = app_set_range.children[n].get()    #get the value of the widget
                 if isinstance(text_value, str): #if the value is string
@@ -1101,7 +1143,7 @@ def set_tresholds(app_set_range):
                 entry_7.configure(text_color = "black") 
             
         close_settings(app_set_range)
-
+    
 
 def close_settings(app_set_range):
     """Called on settings window closing. Enables clickability of app settings button.
@@ -1113,6 +1155,7 @@ def close_settings(app_set_range):
 def app_info():
     """Open github readme in the browser."""
     webbrowser.open('https://github.com/vaclav-kubes/Antenna_switch_control_SW/blob/main/README.md')
+
 
 def src_path(rel_path):
     """Retrieve absolute path to file for dev and for PyInstaller otherwise icon wont load"""
@@ -1178,6 +1221,8 @@ max_az_dev = cstk.StringVar()
 B_connected = cstk.BooleanVar()
 max_u_fant = cstk.StringVar()
 min_u_fant = cstk.StringVar()
+elevation_treshold_TK = cstk.IntVar()
+L_TK_elevation = cstk.StringVar()
 #switch_off = cstk.BooleanVar()
 
 #declaring variables
@@ -1236,11 +1281,12 @@ try: #try to open configuration file and retrieve the config. data: ant. orintat
     min_u_fant.set(config.readline().strip("\n"))
     max_u_fant.set(config.readline().strip("\n"))
     B_connected.set(bool(float(config.readline().strip("\n")+'0')))
+    elevation_treshold_TK.set(int(float(config.readline().strip("\n"))))
     config.close()
     
-except: #if config file doesnt exist create ne file and write there default values for limits of diagn. data, COM port and ant. or. is left empty for further writing
+except: #if config file doesnt exist create new file and write there default values for limits of diagn. data, COM port and ant. or. is left empty for further writing
     config = open("config.txt", "x", encoding = "utf-8")
-    config.writelines(["\n","\n", "650\n", "650\n", "-10\n", "50\n", "-10\n", "50\n", "10\n", "7\n", "12\n", "0\n"])
+    config.writelines(["\n","\n", "650\n", "650\n", "-10\n", "50\n", "-10\n", "50\n", "10\n", "7\n", "12\n", "0\n", "70\n"])
     config.close()
     max_cur_A.set("650")
     max_cur_B.set("650")
@@ -1252,6 +1298,7 @@ except: #if config file doesnt exist create ne file and write there default valu
     max_u_fant.set("12")
     min_u_fant.set("7")
     B_connected.set(False)
+    elevation_treshold_TK.set(70)
 
 get_com = available_com()   #get available COM ports
 

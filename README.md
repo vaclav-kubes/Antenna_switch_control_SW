@@ -1,7 +1,7 @@
 ﻿# Antenna switch controller - SW
 
 This Github page servs as presentation, help and archive page for *Antenna swtich controller* application, developed as part of bachelors thesis by Václav Kubeš at Department of radioelectronics FEEC BUT.
-
+(New functions added in version 1.5 ([see sec New functions in ver1.5](#new-functions-in-ver15))- hopefully no more changes will be needed)
 **Antenna switch controller app** is used for: 
 
  - Obtaining and evaluating diagnostic data from five chanell active antenna switch
@@ -78,3 +78,9 @@ The easiest solution is to close the app and start it again.
 - External libraries not included in standard Python distribution are listed in [requirements.txt](/antenna_switch_sw/requirements.txt)
   - All of them can be installed by running: `pip install -r requirements.txt`
 - Python 3.12.1 was used
+
+## New functions in ver1.5
+- Manuall refresh of all diagnostic data can be done via `Man. refresh` button.
+- Elevation treshold of satellite position to switch to ant. 5 added to settings.
+- Gray out boxes where diag. data from unit B should be disaplyed when unit B not connected.
+- No lower treshold of current to LNAs.

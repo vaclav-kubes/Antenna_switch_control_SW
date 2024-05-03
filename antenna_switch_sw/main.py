@@ -1,7 +1,7 @@
 """
 Control program for five chanell antenna switch with diagnostics.
 
-Version 1.0
+Version 1.5
 
 Author: Václav Kubeš
 

@@ -123,6 +123,7 @@ def evaluate_state(type_of_data, data):
 def on_closing():
     """Auxiliary function which is called after clicking on X"""
     try:
+        
         ant_set("0")
         ser_com.close() #end ser. comm. properly
         s.Shutdown()    #end dde server properly
